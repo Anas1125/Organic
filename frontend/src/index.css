@@ -1,0 +1,80 @@
+@import "tailwindcss";
+
+/* Palette taken from the reference design: deep forest green, soft sage, clean white. */
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+
+  --color-brand-50: #f2f7f1;
+  --color-brand-100: #e4efe2;
+  --color-brand-200: #c9dfc6;
+  --color-brand-300: #a3c79f;
+  --color-brand-400: #74a877;
+  --color-brand-500: #4f8a5a;
+  --color-brand-600: #3b7049;
+  --color-brand-700: #2c5a3e;
+  --color-brand-800: #1e4d3b;
+  --color-brand-900: #163a2c;
+  --color-brand-950: #0d241b;
+
+  --color-canvas: #f5f7f5;
+  --color-ink: #17251e;
+  --color-muted: #6b7a72;
+  --color-line: #e5ebe6;
+
+  --shadow-card: 0 1px 2px rgb(23 37 30 / 0.04), 0 4px 16px rgb(23 37 30 / 0.05);
+  --shadow-lift: 0 2px 4px rgb(23 37 30 / 0.05), 0 12px 32px rgb(23 37 30 / 0.09);
+}
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-canvas text-ink font-sans antialiased;
+  }
+  h1, h2, h3, h4 {
+    @apply tracking-tight;
+  }
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-brand-600;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-2xl bg-white shadow-card;
+  }
+  .container-page {
+    @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+  }
+  .input {
+    @apply w-full rounded-xl border border-line bg-white px-3.5 py-2.5 text-sm text-ink
+      placeholder:text-muted/70 transition
+      focus:border-brand-500 focus:ring-4 focus:ring-brand-100 focus:outline-none
+      disabled:bg-canvas disabled:text-muted;
+  }
+  .label {
+    @apply mb-1.5 block text-sm font-medium text-ink;
+  }
+  .table-wrap {
+    @apply overflow-x-auto rounded-2xl bg-white shadow-card;
+  }
+  .table {
+    @apply w-full text-left text-sm;
+  }
+  .table th {
+    @apply whitespace-nowrap border-b border-line bg-brand-50/60 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted;
+  }
+  .table td {
+    @apply border-b border-line/70 px-4 py-3 align-middle;
+  }
+  .table tr:last-child td {
+    @apply border-b-0;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+}

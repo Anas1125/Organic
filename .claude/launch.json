@@ -1,0 +1,18 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "api",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd /Users/anas/Documents/Organic/backend && .venv/bin/uvicorn app.main:app --reload --port 8000"],
+      "port": 8000,
+      "url": "http://localhost:8000"
+    },
+    {
+      "name": "web",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd /Users/anas/Documents/Organic/frontend && npm run dev"],
+      "port": 5173
+    }
+  ]
+}
