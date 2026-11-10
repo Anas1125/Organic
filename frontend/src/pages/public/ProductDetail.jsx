@@ -1,7 +1,8 @@
-import { BadgeCheck, ChevronLeft, Leaf, MapPin, Package, ShoppingCart, Store } from 'lucide-react'
+import { BadgeCheck, ChevronLeft, Leaf, MapPin, Package, ShoppingCart, Store, Zap } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { GIBadge, OrganicBadge, PriceTiers, ProductImage, QuantityStepper, useAddToCart } from '../../components/product'
+import api from '../../api/client'
+import { GIBadge, OrganicBadge, PriceTiers, ProductCardSkeleton, ProductGrid, ProductImage, QuantityStepper, useAddToCart } from '../../components/product'
 import { Button, EmptyState, Spinner } from '../../components/ui'
 import useFetch from '../../hooks/useFetch'
 import { GI_TYPES, date, money, unitPriceFor } from '../../lib/format'
@@ -14,7 +15,7 @@ export default function ProductDetail() {
   const { data: p, loading, error } = useFetch(`/products/${id}`)
   const [qty, setQty] = useState(1)
   const [img, setImg] = useState(0)
-  const { addToCart, busy } = useAddToCart()
+  const { addToCart, buyNow, busy, buying } = useAddToCart()
 
   useEffect(() => { if (p) { setQty(p.min_order_qty); setImg(0) } }, [p])
 
@@ -87,8 +88,11 @@ export default function ProductDetail() {
                   {saving > 0 && <div className="text-xs font-semibold text-brand-600">You save {money(saving)}</div>}
                 </div>
               </div>
-              <Button size="lg" className="mt-4 w-full" loading={busy} disabled={out || qty < p.min_order_qty || qty > p.stock} onClick={() => addToCart(p, qty)}>
+              <Button size="lg" className="mt-4 w-full" loading={busy} disabled={out || buying || qty < p.min_order_qty || qty > p.stock} onClick={() => addToCart(p, qty)}>
                 <ShoppingCart className="size-5" /> Add to cart
+              </Button>
+              <Button size="lg" variant="outline" className="mt-2.5 w-full" loading={buying} disabled={out || busy || qty < p.min_order_qty || qty > p.stock} onClick={() => buyNow(p, qty)}>
+                <Zap className="size-5" /> Buy now
               </Button>
             </div>
           </div>
@@ -128,6 +132,43 @@ export default function ProductDetail() {
           )}
         </div>
       </div>
+
+      <SuggestedProducts product={p} />
     </div>
+  )
+}
+
+/** Up to 4 other products: same category first, then the newest from elsewhere. */
+function SuggestedProducts({ product }) {
+  const [items, setItems] = useState(null)
+
+  useEffect(() => {
+    let alive = true
+    setItems(null)
+    Promise.all([
+      api.get('/products', { params: { category: product.category.slug, page_size: 9 } }),
+      api.get('/products', { params: { page_size: 12 } }),
+    ])
+      .then(([same, newest]) => {
+        const seen = new Set([product.id])
+        const pick = []
+        for (const p of [...same.data.items, ...newest.data.items]) {
+          if (!seen.has(p.id) && pick.length < 4) { seen.add(p.id); pick.push(p) }
+        }
+        if (alive) setItems(pick)
+      })
+      .catch(() => alive && setItems([]))
+    return () => { alive = false }
+  }, [product.id, product.category.slug])
+
+  if (items && !items.length) return null
+  return (
+    <section className="mt-12 sm:mt-16">
+      <div className="mb-4 flex items-end justify-between gap-4">
+        <h2 className="text-xl font-bold sm:text-2xl">You may also like</h2>
+        <Link to={`/shop?category=${product.category.slug}`} className="shrink-0 text-sm font-semibold text-brand-700 hover:underline">More {product.category.name}</Link>
+      </div>
+      {items ? <ProductGrid products={items} /> : <ProductCardSkeleton count={4} />}
+    </section>
   )
 }

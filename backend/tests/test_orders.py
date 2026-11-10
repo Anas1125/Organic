@@ -86,3 +86,17 @@ def test_buyer_cannot_see_other_buyers_order(client, seller, admin, buyer, categ
     assert client.get(f"/api/v1/orders/{oid}", headers=other).status_code == 404
     other_seller = make_seller(client, admin, "s2@test.io")
     assert client.patch(f"/api/v1/seller/orders/{oid}/status", json={"status": "confirmed"}, headers=other_seller).status_code == 404
+
+
+def test_order_items_show_product_photo(client, seller, admin, buyer, category):
+    from tests.conftest import real_png
+
+    pid = make_product(client, seller, admin, category)
+    client.post(f"/api/v1/seller/products/{pid}/images", headers=seller,
+                files={"files": ("p.png", real_png(), "image/png")})
+    client.post("/api/v1/cart/items", json={"product_id": pid, "quantity": 1}, headers=buyer)
+    client.post("/api/v1/orders/checkout", json=ADDRESS, headers=buyer)
+    item = client.get("/api/v1/orders", headers=buyer).json()[0]["items"][0]
+    assert item["image"].startswith(f"/media/products/{pid}/")
+    got = client.get(item["image"])  # per-product folder must be served too
+    assert got.status_code == 200 and got.headers["content-type"] == "image/webp"

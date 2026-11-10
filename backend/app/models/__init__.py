@@ -275,6 +275,8 @@ class OrderItem(Base):
     line_total: Mapped[Decimal] = mapped_column(Money)
 
     order: Mapped[Order] = relationship(back_populates="items")
+    # Only used to show the product's photo; the order keeps its own name and prices.
+    product: Mapped["Product | None"] = relationship()
 
 
 class SiteSettings(Base):

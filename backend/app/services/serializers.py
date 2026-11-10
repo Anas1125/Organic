@@ -88,4 +88,8 @@ def order_out(o: Order) -> s.OrderOut:
     out = s.OrderOut.model_validate(o)
     out.buyer_name = o.buyer.full_name
     out.buyer_email = o.buyer.email
+    for item_out, item in zip(out.items, o.items):
+        if item.product and item.product.images:
+            first = min(item.product.images, key=lambda im: im.sort_order)
+            item_out.image = media_url(first.path)
     return out

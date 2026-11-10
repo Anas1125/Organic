@@ -1,4 +1,5 @@
-import { Check, X } from 'lucide-react'
+import { Check, Package, X } from 'lucide-react'
+import { useState } from 'react'
 import { ORDER_STEPS, dateTime, money } from '../lib/format'
 import { StatusBadge } from './ui'
 
@@ -29,12 +30,25 @@ export function OrderTimeline({ status }) {
   )
 }
 
+/** Product photo for an order line; falls back to a box icon if there is none or it fails to load. */
+export function ItemPhoto({ src, alt = '', className = 'size-12 rounded-lg', iconSize = 'size-4' }) {
+  const [failed, setFailed] = useState(false)
+  return (
+    <div className={`shrink-0 overflow-hidden bg-brand-100 text-brand-700 ${className}`}>
+      {src && !failed
+        ? <img src={src} alt={alt} className="h-full w-full object-cover" loading="lazy" onError={() => setFailed(true)} />
+        : <div className="grid h-full place-items-center"><Package className={iconSize} /></div>}
+    </div>
+  )
+}
+
 export function OrderItemsTable({ order }) {
   return (
     <div className="divide-y divide-line">
       {order.items.map((it) => (
-        <div key={it.id} className="flex items-center justify-between gap-4 py-3 text-sm">
-          <div className="min-w-0">
+        <div key={it.id} className="flex items-center gap-3 py-3 text-sm">
+          <ItemPhoto src={it.image} />
+          <div className="min-w-0 flex-1">
             <div className="truncate font-medium">{it.product_name}</div>
             <div className="text-xs text-muted">{it.quantity} {it.unit} × {money(it.unit_price)}</div>
           </div>

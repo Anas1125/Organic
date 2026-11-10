@@ -13,10 +13,11 @@ router = APIRouter(include_in_schema=False)
 
 PUBLIC_FOLDERS = {"products", "site"}
 TYPES = {"jpg": "image/jpeg", "png": "image/png", "webp": "image/webp"}
-SAFE_NAME = re.compile(r"^[a-f0-9]{32}\.(jpg|png|webp)$")
+# e.g. "abc…123.webp" or "13/abc…123.webp" (product photos sit in a per-product folder)
+SAFE_NAME = re.compile(r"^(\d+/)?[a-f0-9]{32}\.(jpg|png|webp)$")
 
 
-@router.get("/{folder}/{name}")
+@router.get("/{folder}/{name:path}")
 def media(folder: str, name: str):
     if folder not in PUBLIC_FOLDERS or not SAFE_NAME.match(name):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Not found")

@@ -1,6 +1,6 @@
 import { AlertTriangle, ShoppingCart, Store, Trash2, Truck } from 'lucide-react'
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import api, { errorMessage } from '../../api/client'
 import { ProductImage, QuantityStepper } from '../../components/product'
 import { Button, EmptyState, ErrorBox, Field, Input, Spinner, Textarea } from '../../components/ui'
@@ -76,6 +76,12 @@ function Checkout({ cart }) {
   const { refresh } = useCart()
   const navigate = useNavigate()
   const toast = useToast()
+  const { state } = useLocation()
+  const formRef = useRef(null)
+  // Coming from "Buy now": bring the checkout form into view (it sits below the cart on phones).
+  useEffect(() => {
+    if (state?.checkout) formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [state])
   const [form, setForm] = useState({
     shipping_name: user.full_name, shipping_phone: user.phone || '', shipping_address: '',
     shipping_city: '', shipping_state: '', shipping_pincode: '', notes: '',
@@ -102,7 +108,7 @@ function Checkout({ cart }) {
   }
 
   return (
-    <form onSubmit={submit} className="card space-y-4 p-5 sm:p-6">
+    <form ref={formRef} onSubmit={submit} className="card scroll-mt-24 space-y-4 p-5 sm:p-6">
       <h2 className="text-lg font-bold">Delivery details</h2>
       <ErrorBox message={error} />
       <div className="grid gap-3 sm:grid-cols-2">

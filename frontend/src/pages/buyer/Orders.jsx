@@ -2,7 +2,7 @@ import { CheckCircle2, ChevronLeft, ChevronRight, Package, Store } from 'lucide-
 import { useState } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
 import api, { errorMessage } from '../../api/client'
-import { OrderItemsTable, OrderMeta, OrderTimeline, ShippingBlock } from '../../components/orders'
+import { ItemPhoto, OrderItemsTable, OrderMeta, OrderTimeline, ShippingBlock } from '../../components/orders'
 import { Button, EmptyState, ErrorBox, Spinner, StatusBadge } from '../../components/ui'
 import { useToast } from '../../context/ToastContext'
 import useFetch from '../../hooks/useFetch'
@@ -31,7 +31,7 @@ export function Orders() {
           <div className="space-y-3">
             {data.map((o) => (
               <Link key={o.id} to={`/orders/${o.id}`} className="card flex items-center gap-4 p-4 transition hover:shadow-lift sm:p-5">
-                <div className="hidden size-12 shrink-0 place-items-center rounded-xl bg-brand-100 text-brand-700 sm:grid"><Package className="size-5" /></div>
+                <OrderThumb order={o} />
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-mono text-sm font-semibold">{o.order_number}</span>
@@ -45,6 +45,19 @@ export function Orders() {
             ))}
           </div>
         )}
+    </div>
+  )
+}
+
+/** First product photo of the order, with a "+N" badge when there are more items. */
+function OrderThumb({ order }) {
+  const img = order.items.find((it) => it.image)?.image
+  return (
+    <div className="relative shrink-0">
+      <ItemPhoto src={img} alt={order.items[0].product_name} className="size-14 rounded-xl sm:size-16" iconSize="size-5" />
+      {order.items.length > 1 && (
+        <span className="absolute bottom-1 right-1 rounded-full bg-ink/75 px-1.5 text-[10px] font-semibold text-white">+{order.items.length - 1}</span>
+      )}
     </div>
   )
 }

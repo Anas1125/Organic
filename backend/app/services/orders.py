@@ -23,7 +23,7 @@ SELLER_FLOW: dict[str, set[str]] = {
 }
 
 ORDER_LOAD = (
-    selectinload(Order.items),
+    selectinload(Order.items).selectinload(OrderItem.product).selectinload(Product.images),
     selectinload(Order.seller),
     selectinload(Order.buyer),
 )

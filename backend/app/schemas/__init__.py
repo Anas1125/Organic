@@ -361,6 +361,7 @@ class OrderItemOut(ORM):
     quantity: int
     unit_price: Decimal
     line_total: Decimal
+    image: str | None = None  # product's first photo, if the product still exists
 
 
 class OrderOut(ORM):

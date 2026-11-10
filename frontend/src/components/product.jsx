@@ -1,7 +1,7 @@
 import { BadgeCheck, Leaf, MapPin, Minus, Plus, ShoppingBag } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { errorMessage } from '../api/client'
+import api, { errorMessage } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
 import { useToast } from '../context/ToastContext'
@@ -38,25 +38,52 @@ export function GIBadge({ small }) {
 /** Adds to cart, sending visitors to login first. Returns a click handler. */
 export function useAddToCart() {
   const { user } = useAuth()
-  const { add } = useCart()
+  const { add, cart, setCart } = useCart()
   const toast = useToast()
   const navigate = useNavigate()
-  const [busy, setBusy] = useState(false)
+  const [busy, setBusy] = useState('')
+
+  const canBuy = (product) => {
+    if (!user) {
+      navigate('/login', { state: { from: `/products/${product.id}` } })
+      return false
+    }
+    if (user.role !== 'buyer') {
+      toast.error('Only buyer accounts can place orders')
+      return false
+    }
+    return true
+  }
 
   const addToCart = async (product, qty) => {
-    if (!user) return navigate('/login', { state: { from: `/products/${product.id}` } })
-    if (user.role !== 'buyer') return toast.error('Only buyer accounts can place orders')
-    setBusy(true)
+    if (!canBuy(product)) return
+    setBusy('cart')
     try {
       await add(product.id, qty)
       toast.success(`${product.name} added to cart`)
     } catch (e) {
       toast.error(errorMessage(e))
     } finally {
-      setBusy(false)
+      setBusy('')
     }
   }
-  return { addToCart, busy }
+
+  /** Put exactly this quantity in the cart and go straight to checkout. */
+  const buyNow = async (product, qty) => {
+    if (!canBuy(product)) return
+    setBusy('buy')
+    try {
+      const existing = cart?.groups?.flatMap((g) => g.items).find((it) => it.product.id === product.id)
+      if (existing) setCart((await api.patch(`/cart/items/${existing.id}`, { quantity: qty })).data)
+      else await add(product.id, qty)
+      navigate('/cart', { state: { checkout: true } })
+    } catch (e) {
+      toast.error(errorMessage(e))
+    } finally {
+      setBusy('')
+    }
+  }
+  return { addToCart, buyNow, busy: busy === 'cart', buying: busy === 'buy' }
 }
 
 export function ProductCard({ product }) {
