@@ -57,6 +57,7 @@ class UserOut(ORM):
     role: str
     buyer_type: str
     is_active: bool
+    is_owner: bool = False
     created_at: datetime
     seller_id: int | None = None
     seller_status: str | None = None
@@ -69,11 +70,18 @@ class TokenOut(BaseModel):
 
 
 class UserUpdate(BaseModel):
+    email: EmailStr | None = None  # needs current_password
     full_name: str | None = Field(default=None, min_length=2, max_length=120)
     phone: str | None = Field(default=None, pattern=r"^[0-9+\- ]{7,20}$")
     buyer_type: Literal["individual", "wholesale"] | None = None
     current_password: str | None = None
     new_password: str | None = Field(default=None, min_length=8, max_length=128)
+
+
+class AdminCreate(BaseModel):
+    full_name: str = Field(min_length=2, max_length=120)
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=128)
 
 
 # ---------- Sellers ----------

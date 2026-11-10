@@ -1,11 +1,13 @@
 import {
-  BadgeCheck, BarChart3, Boxes, FolderTree, LayoutDashboard, Leaf, Mail, Package, PlusCircle,
+  BadgeCheck, BarChart3, Crown, CircleUser, Boxes, FolderTree, LayoutDashboard, Leaf, Mail, Package, PlusCircle,
   Settings, ShieldCheck, ShoppingBag, Store, UserCog, Users,
 } from 'lucide-react'
 import { Route, Routes } from 'react-router-dom'
+import { useAuth } from './context/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import DashboardLayout from './layouts/DashboardLayout'
 import PublicLayout from './layouts/PublicLayout'
+import { AdminAdmins, AdminMyAccount } from './pages/admin/AdminAccounts'
 import AdminHome from './pages/admin/AdminHome'
 import { AdminCategories, AdminProducts } from './pages/admin/AdminCatalog'
 import { AdminMessages, AdminOrders } from './pages/admin/AdminOrders'
@@ -52,7 +54,15 @@ const ADMIN_NAV = [
   { to: '/admin/orders', label: 'Orders', icon: ShoppingBag },
   { to: '/admin/messages', label: 'Messages', icon: Mail },
   { to: '/admin/settings', label: 'Site settings', icon: Settings },
+  { to: '/admin/admins', label: 'Admins', icon: Crown, ownerOnly: true },
+  { to: '/admin/account', label: 'My account', icon: CircleUser },
 ]
+
+/** Admin dashboard; the Admins page is listed only for the main admin. */
+function AdminLayout() {
+  const { user } = useAuth()
+  return <DashboardLayout title="Admin" nav={ADMIN_NAV.filter((n) => !n.ownerOnly || user?.is_owner)} />
+}
 
 export default function App() {
   return (
@@ -91,7 +101,7 @@ export default function App() {
       </Route>
 
       <Route element={<ProtectedRoute roles={['admin']} />}>
-        <Route path="/admin" element={<DashboardLayout title="Admin" nav={ADMIN_NAV} />}>
+        <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<AdminHome />} />
           <Route path="users" element={<AdminUsers />} />
           <Route path="sellers" element={<AdminSellers />} />
@@ -102,6 +112,8 @@ export default function App() {
           <Route path="orders" element={<AdminOrders />} />
           <Route path="messages" element={<AdminMessages />} />
           <Route path="settings" element={<SiteSettings />} />
+          <Route path="admins" element={<AdminAdmins />} />
+          <Route path="account" element={<AdminMyAccount />} />
         </Route>
       </Route>
     </Routes>

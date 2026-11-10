@@ -53,6 +53,8 @@ class User(TimestampMixin, Base):
     role: Mapped[str] = mapped_column(String(10), index=True)
     buyer_type: Mapped[str] = mapped_column(String(12), default=BuyerType.INDIVIDUAL)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # The top admin: the only account that can add or remove other admins.
+    is_owner: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
 
     seller_profile: Mapped["SellerProfile | None"] = relationship(
         back_populates="user", uselist=False

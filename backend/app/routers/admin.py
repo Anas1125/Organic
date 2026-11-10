@@ -8,7 +8,8 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app import schemas as s
-from app.core.deps import require_admin
+from app.core.deps import require_admin, require_owner
+from app.core.security import hash_password
 from app.db import get_db
 from app.models import (
     Category,
@@ -107,10 +108,55 @@ def set_user_active(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
     if user.id == admin.id:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "You cannot deactivate yourself")
+    if user.is_owner:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "The main admin account cannot be deactivated")
+    if user.role == Role.ADMIN and not admin.is_owner:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN, "Only the main admin account can manage admins"
+        )
     user.is_active = body.is_active
     db.commit()
     db.refresh(user)
     return user_out(user)
+
+
+# ---------- Admin accounts (main admin only) ----------
+
+
+@router.get("/admins", response_model=list[s.UserOut], dependencies=[Depends(require_owner)])
+def list_admins(db: Session = Depends(get_db)):
+    stmt = select(User).where(User.role == Role.ADMIN).order_by(User.is_owner.desc(), User.created_at)
+    return [user_out(u) for u in db.scalars(stmt)]
+
+
+@router.post(
+    "/admins", response_model=s.UserOut, status_code=201, dependencies=[Depends(require_owner)]
+)
+def create_admin(body: s.AdminCreate, db: Session = Depends(get_db)):
+    email = body.email.lower()
+    if db.scalar(select(User).where(User.email == email)):
+        raise HTTPException(status.HTTP_409_CONFLICT, "An account with this email already exists")
+    user = User(
+        email=email,
+        password_hash=hash_password(body.password),
+        full_name=body.full_name.strip(),
+        role=Role.ADMIN,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user_out(user)
+
+
+@router.delete("/admins/{user_id}", status_code=204, dependencies=[Depends(require_owner)])
+def remove_admin(user_id: int, db: Session = Depends(get_db)):
+    user = db.get(User, user_id)
+    if not user or user.role != Role.ADMIN:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Admin not found")
+    if user.is_owner:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "The main admin account cannot be removed")
+    db.delete(user)  # GI reviews they made keep their result; reviewed_by becomes empty
+    db.commit()
 
 
 # ---------- Sellers ----------

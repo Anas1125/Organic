@@ -9,7 +9,8 @@ export function AccountForm() {
   const { user, setUser } = useAuth()
   const toast = useToast()
   const [form, setForm] = useState({ full_name: user.full_name, phone: user.phone || '', buyer_type: user.buyer_type })
-  const [pw, setPw] = useState({ current_password: '', new_password: '' })
+  const emptyLogin = () => ({ email: user.email, new_password: '', current_password: '' })
+  const [pw, setPw] = useState(emptyLogin)
   const [busy, setBusy] = useState('')
 
   const save = async (e) => {
@@ -31,9 +32,17 @@ export function AccountForm() {
     e.preventDefault()
     setBusy('pw')
     try {
-      await api.patch('/auth/me', pw)
-      setPw({ current_password: '', new_password: '' })
-      toast.success('Password changed')
+      const body = { current_password: pw.current_password }
+      if (pw.email.trim().toLowerCase() !== user.email) body.email = pw.email.trim()
+      if (pw.new_password) body.new_password = pw.new_password
+      if (!body.email && !body.new_password) {
+        toast.error('Enter a new email or a new password')
+        return
+      }
+      const { data } = await api.patch('/auth/me', body)
+      setUser(data)
+      setPw({ email: data.email, new_password: '', current_password: '' })
+      toast.success('Login details updated')
     } catch (err) {
       toast.error(errorMessage(err))
     } finally {
@@ -45,7 +54,6 @@ export function AccountForm() {
     <div className="grid gap-6 lg:grid-cols-2">
       <form onSubmit={save} className="card space-y-4 p-5 sm:p-6">
         <h2 className="font-semibold">Personal details</h2>
-        <Field label="Email"><Input value={user.email} disabled /></Field>
         <Field label="Full name"><Input required minLength={2} value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} /></Field>
         <Field label="Phone"><Input type="tel" pattern="[0-9+\- ]{7,20}" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></Field>
         {user.role === 'buyer' && (
@@ -59,10 +67,14 @@ export function AccountForm() {
         <Button type="submit" loading={busy === 'profile'}>Save changes</Button>
       </form>
       <form onSubmit={changePw} className="card space-y-4 p-5 sm:p-6 lg:self-start">
-        <h2 className="font-semibold">Change password</h2>
+        <div>
+          <h2 className="font-semibold">Login email & password</h2>
+          <p className="text-sm text-muted">Change either one. Your current password is needed to confirm.</p>
+        </div>
+        <Field label="Login email"><Input type="email" required autoComplete="username" value={pw.email} onChange={(e) => setPw({ ...pw, email: e.target.value })} /></Field>
+        <Field label="New password" hint="Optional. At least 8 characters."><Input type="password" minLength={8} autoComplete="new-password" value={pw.new_password} onChange={(e) => setPw({ ...pw, new_password: e.target.value })} /></Field>
         <Field label="Current password"><Input type="password" required autoComplete="current-password" value={pw.current_password} onChange={(e) => setPw({ ...pw, current_password: e.target.value })} /></Field>
-        <Field label="New password" hint="At least 8 characters"><Input type="password" required minLength={8} autoComplete="new-password" value={pw.new_password} onChange={(e) => setPw({ ...pw, new_password: e.target.value })} /></Field>
-        <Button type="submit" variant="secondary" loading={busy === 'pw'}>Update password</Button>
+        <Button type="submit" variant="secondary" loading={busy === 'pw'}>Update login details</Button>
       </form>
     </div>
   )

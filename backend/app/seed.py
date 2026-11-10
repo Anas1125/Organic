@@ -64,13 +64,20 @@ def seed_base(db):
     for name, desc in CATEGORIES:
         if not db.scalar(select(Category).where(Category.slug == slug(name))):
             db.add(Category(name=name, slug=slug(name), description=desc))
-    if settings.seed_admin_email and settings.seed_admin_password:
+    has_admin = db.scalar(select(User.id).where(User.role == Role.ADMIN).limit(1))
+    if has_admin:
+        # Never re-create the seed admin: the main admin may have changed their email.
+        if not db.scalar(select(User.id).where(User.is_owner.is_(True)).limit(1)):
+            first = db.scalar(select(User).where(User.role == Role.ADMIN).order_by(User.id))
+            first.is_owner = True
+    elif settings.seed_admin_email and settings.seed_admin_password:
         get_or_create_user(
             db,
             settings.seed_admin_email.lower(),
             password_hash=hash_password(settings.seed_admin_password),
             full_name="Platform Admin",
             role=Role.ADMIN,
+            is_owner=True,
         )
     else:
         print("SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD not set — no admin created")

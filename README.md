@@ -90,3 +90,11 @@ and uploads must be under 4 MB (Vercel's request limit). Neon's free plan has 0.
 a few thousand product photos. For more, switch to `STORAGE_BACKEND=s3`.
 
 Demo photos come from Wikimedia Commons — see `backend/app/seed_images/CREDITS.md`.
+
+## Admin accounts
+
+The first admin is the **main admin** (owner). Only the main admin can add or remove admins
+(Admin → Admins) and switch admin accounts on or off. Other admins can do everything else.
+Every admin can change their own login email and password under Admin → My account.
+`SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` are used only when no admin exists yet, so changing
+the main admin's email later does not bring the seed account back.

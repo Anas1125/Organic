@@ -41,6 +41,14 @@ require_admin = require_role(Role.ADMIN)
 require_buyer = require_role(Role.BUYER)
 
 
+def require_owner(user: User = Depends(require_admin)) -> User:
+    if not user.is_owner:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN, "Only the main admin account can manage admins"
+        )
+    return user
+
+
 def get_current_seller(
     user: User = Depends(require_role(Role.SELLER)), db: Session = Depends(get_db)
 ) -> SellerProfile:

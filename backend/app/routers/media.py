@@ -3,7 +3,6 @@
 Certificate documents are never served here — only through /api/v1/documents.
 """
 
-import mimetypes
 import re
 
 from fastapi import APIRouter, HTTPException, Response, status
@@ -13,6 +12,7 @@ from app.services.storage import get_storage
 router = APIRouter(include_in_schema=False)
 
 PUBLIC_FOLDERS = {"products", "site"}
+TYPES = {"jpg": "image/jpeg", "png": "image/png", "webp": "image/webp"}
 SAFE_NAME = re.compile(r"^[a-f0-9]{32}\.(jpg|png|webp)$")
 
 
@@ -23,7 +23,7 @@ def media(folder: str, name: str):
     data = get_storage().read(f"{folder}/{name}")
     return Response(
         data,
-        media_type=mimetypes.guess_type(name)[0] or "application/octet-stream",
+        media_type=TYPES[name.rsplit(".", 1)[1]],  # explicit: older Pythons lack .webp
         # File names are random and never reused, so browsers and CDNs can keep them.
         headers={"Cache-Control": "public, max-age=31536000, immutable"},
     )

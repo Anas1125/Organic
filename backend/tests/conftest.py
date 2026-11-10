@@ -71,7 +71,7 @@ def auth(token: str) -> dict:
 def admin(client):
     with SessionLocal() as db:
         db.add(User(email="admin@test.io", password_hash=hash_password(PASSWORD),
-                    full_name="Admin", role="admin"))
+                    full_name="Admin", role="admin", is_owner=True))
         db.commit()
     r = client.post("/api/v1/auth/login", json={"email": "admin@test.io", "password": PASSWORD})
     return auth(r.json()["access_token"])

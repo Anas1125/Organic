@@ -58,11 +58,20 @@ def me(user: User = Depends(get_current_user)):
 def update_me(
     body: s.UserUpdate, user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
-    if body.new_password:
+    new_email = body.email.lower() if body.email else None
+    if new_email == user.email:
+        new_email = None
+    if body.new_password or new_email:
+        # Changing login details always needs the current password.
         if not body.current_password or not verify_password(
             body.current_password, user.password_hash
         ):
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "Current password is incorrect")
+    if new_email:
+        if db.query(User).filter_by(email=new_email).first():
+            raise HTTPException(status.HTTP_409_CONFLICT, "An account with this email already exists")
+        user.email = new_email
+    if body.new_password:
         user.password_hash = hash_password(body.new_password)
     for field in ("full_name", "phone"):
         value = getattr(body, field)

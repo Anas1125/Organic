@@ -53,7 +53,7 @@ export function AdminUsers() {
                   <td className="whitespace-nowrap text-muted">{date(u.created_at)}</td>
                   <td><StatusBadge status={u.is_active ? 'active' : 'inactive'} /></td>
                   <td className="text-right">
-                    {u.id !== me.id && (
+                    {u.id !== me.id && !u.is_owner && (u.role !== 'admin' || me.is_owner) && (
                       <Button size="sm" variant={u.is_active ? 'danger-soft' : 'secondary'} onClick={() => toggle(u)}>{u.is_active ? 'Deactivate' : 'Activate'}</Button>
                     )}
                   </td>
