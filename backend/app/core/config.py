@@ -1,6 +1,11 @@
+import os
 from functools import lru_cache
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Vercel (and similar serverless hosts) only allow writing under /tmp.
+ON_SERVERLESS = bool(os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME"))
 
 
 class Settings(BaseSettings):
@@ -17,7 +22,7 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:5173"
 
     storage_backend: str = "local"  # local | s3
-    upload_dir: str = "uploads"
+    upload_dir: str = "/tmp/uploads" if ON_SERVERLESS else "uploads"
     public_media_url: str = "/media"
     s3_bucket: str | None = None
     s3_region: str | None = None
@@ -26,11 +31,24 @@ class Settings(BaseSettings):
     s3_secret_access_key: str | None = None
     s3_public_base_url: str | None = None
 
+    # Run migrations + base seed when the app starts (for hosts without a shell).
+    auto_migrate: bool = False
+
     max_image_mb: int = 5
     max_document_mb: int = 10
 
     seed_admin_email: str | None = None
     seed_admin_password: str | None = None
+
+    @field_validator("database_url", "test_database_url")
+    @classmethod
+    def use_psycopg3(cls, v: str | None) -> str | None:
+        """Hosts like Neon give postgres:// or postgresql:// URLs; we ship the psycopg 3 driver."""
+        if v:
+            for prefix in ("postgres://", "postgresql://"):
+                if v.startswith(prefix):
+                    return "postgresql+psycopg://" + v[len(prefix):]
+        return v
 
     @property
     def cors_origin_list(self) -> list[str]:

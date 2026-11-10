@@ -10,6 +10,14 @@ from app.routers import admin, auth, buyer, catalog, documents, seller, site
 
 logger = logging.getLogger("terralens")
 
+if settings.auto_migrate:
+    try:
+        from app.bootstrap import migrate_and_seed
+
+        migrate_and_seed()
+    except Exception:  # keep serving; the error shows in the host's logs
+        logger.exception("Startup migration failed")
+
 app = FastAPI(
     title="Terralens Marketplace API",
     version="1.0.0",
@@ -53,12 +61,15 @@ def health():
 # and are NOT served here — only through the authenticated /documents endpoints.
 if settings.storage_backend == "local":
     from pathlib import Path
+    from urllib.parse import urlsplit
 
+    # PUBLIC_MEDIA_URL may be a full URL (when the frontend is on another domain).
+    media_path = urlsplit(settings.public_media_url).path.rstrip("/")
     for folder in ("products", "site"):  # public image folders only
         public_dir = Path(settings.upload_dir) / folder
         public_dir.mkdir(parents=True, exist_ok=True)
         app.mount(
-            f"{settings.public_media_url}/{folder}",
+            f"{media_path}/{folder}",
             StaticFiles(directory=public_dir),
             name=f"media-{folder}",
         )

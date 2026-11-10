@@ -69,3 +69,19 @@ file validation and private document access. Tests use `TEST_DATABASE_URL` and w
 * Build the frontend with `npm run build` and serve `frontend/dist/` behind the same domain as the API (or set `VITE_API_URL`).
 * Run `alembic upgrade head` on each deploy. Never run `pytest` against the production database.
 * Online payments are not built yet — `orders.payment_method` is ready for a gateway to be added.
+
+## Deployment (Vercel + Neon + Cloudflare Pages)
+
+Both deploy automatically when `main` is pushed to GitHub.
+
+**Backend — Vercel** (root directory `backend`, FastAPI preset). Environment variables:
+`DATABASE_URL` (Neon; `postgres://` URLs are accepted), `JWT_SECRET`,
+`CORS_ORIGINS=https://organic-bt6.pages.dev`, `AUTO_MIGRATE=true`,
+`SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`, `PUBLIC_MEDIA_URL=https://<backend>.vercel.app/media`.
+With `AUTO_MIGRATE=true` the app runs `alembic upgrade head` and creates the categories and first admin when it starts.
+
+**Frontend — Cloudflare Pages** (root `frontend`, build `npm run build`, output `dist`).
+The API address is in `frontend/.env.production`.
+
+**Uploaded files:** Vercel's disk is temporary, so images and documents uploaded there
+disappear. For production set `STORAGE_BACKEND=s3` with an S3-compatible bucket (e.g. Cloudflare R2).
