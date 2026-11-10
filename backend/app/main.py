@@ -3,10 +3,9 @@ import logging
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
-from app.routers import admin, auth, buyer, catalog, documents, seller, site
+from app.routers import admin, auth, buyer, catalog, documents, media, seller, site
 
 logger = logging.getLogger("terralens")
 
@@ -57,19 +56,10 @@ def health():
     return {"status": "ok"}
 
 
-# Public product images in local development. Documents live under uploads/documents
-# and are NOT served here — only through the authenticated /documents endpoints.
-if settings.storage_backend == "local":
-    from pathlib import Path
+# Public images (products, logo) for local and database storage. With S3 the
+# bucket serves them directly. PUBLIC_MEDIA_URL may be a full URL when the
+# frontend is on another domain; only its path matters here.
+if settings.storage_backend in ("local", "database"):
     from urllib.parse import urlsplit
 
-    # PUBLIC_MEDIA_URL may be a full URL (when the frontend is on another domain).
-    media_path = urlsplit(settings.public_media_url).path.rstrip("/")
-    for folder in ("products", "site"):  # public image folders only
-        public_dir = Path(settings.upload_dir) / folder
-        public_dir.mkdir(parents=True, exist_ok=True)
-        app.mount(
-            f"{media_path}/{folder}",
-            StaticFiles(directory=public_dir),
-            name=f"media-{folder}",
-        )
+    app.include_router(media.router, prefix=urlsplit(settings.public_media_url).path.rstrip("/"))

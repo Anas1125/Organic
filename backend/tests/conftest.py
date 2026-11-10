@@ -53,6 +53,16 @@ def category():
         return c.id
 
 
+def real_png(size=(40, 30), color=(30, 90, 60)) -> bytes:
+    import io
+
+    from PIL import Image
+
+    out = io.BytesIO()
+    Image.new("RGB", size, color).save(out, "PNG")
+    return out.getvalue()
+
+
 def auth(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
 

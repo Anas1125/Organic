@@ -21,7 +21,8 @@ class Settings(BaseSettings):
 
     cors_origins: str = "http://localhost:5173"
 
-    storage_backend: str = "local"  # local | s3
+    # local = disk (development), database = Postgres (free, works on Vercel), s3 = any S3 bucket
+    storage_backend: str = "database" if ON_SERVERLESS else "local"
     upload_dir: str = "/tmp/uploads" if ON_SERVERLESS else "uploads"
     public_media_url: str = "/media"
     s3_bucket: str | None = None
@@ -33,8 +34,11 @@ class Settings(BaseSettings):
 
     # Run migrations + base seed when the app starts (for hosts without a shell).
     auto_migrate: bool = False
+    # With AUTO_MIGRATE, also add the demo sellers and products (with photos).
+    seed_demo: bool = False
 
-    max_image_mb: int = 5
+    max_image_mb: int = 4  # Vercel rejects request bodies over 4.5 MB
+    image_max_side: int = 1600  # uploaded images are resized to fit and saved as WebP
     max_document_mb: int = 10
 
     seed_admin_email: str | None = None

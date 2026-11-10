@@ -1,6 +1,8 @@
 from tests.conftest import make_product
 
-PNG = b"\x89PNG\r\n\x1a\n" + b"0" * 64
+from tests.conftest import real_png
+
+PNG = real_png()
 
 
 def test_site_settings_defaults_and_admin_update(client, admin, buyer):
@@ -23,7 +25,10 @@ def test_logo_upload_and_reset(client, admin):
     r = client.post("/api/v1/admin/site-settings/logo", files={"file": ("l.png", PNG, "image/png")}, headers=admin)
     url = r.json()["logo_url"]
     assert url.startswith("/media/site/")
-    assert client.get(url).content == PNG
+    assert url.endswith(".webp")  # images are re-encoded as WebP
+    got = client.get(url)
+    assert got.status_code == 200 and got.headers["content-type"] == "image/webp"
+    assert got.content.startswith(b"RIFF")
 
     r = client.delete("/api/v1/admin/site-settings/logo", headers=admin)
     assert r.json()["logo_url"] is None
@@ -67,3 +72,23 @@ def test_contact_details_validated(client, admin):
     for extra in bad:
         r = client.put("/api/v1/admin/site-settings", json={"site_name": "T", **extra}, headers=admin)
         assert r.status_code == 422, extra
+
+
+def test_database_storage_round_trip(client, admin, monkeypatch):
+    """STORAGE_BACKEND=database keeps files in Postgres (used on Vercel)."""
+    from app.services import storage
+
+    monkeypatch.setattr(storage, "_storage", storage.DatabaseStorage())
+    r = client.post("/api/v1/admin/site-settings/logo", files={"file": ("l.png", real_png((3000, 1000)), "image/png")}, headers=admin)
+    url = r.json()["logo_url"]
+    got = client.get(url)
+    assert got.status_code == 200 and got.headers["cache-control"].startswith("public")
+
+    from io import BytesIO
+
+    from PIL import Image
+
+    assert max(Image.open(BytesIO(got.content)).size) == 1600  # resized on upload
+    client.delete("/api/v1/admin/site-settings/logo", headers=admin)
+    assert client.get(url).status_code == 404
+    assert client.get("/media/documents/" + "a" * 32 + ".pdf").status_code == 404  # never public

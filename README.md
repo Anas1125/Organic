@@ -77,11 +77,16 @@ Both deploy automatically when `main` is pushed to GitHub.
 **Backend — Vercel** (root directory `backend`, FastAPI preset). Environment variables:
 `DATABASE_URL` (Neon; `postgres://` URLs are accepted), `JWT_SECRET`,
 `CORS_ORIGINS=https://organic-bt6.pages.dev`, `AUTO_MIGRATE=true`,
-`SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`, `PUBLIC_MEDIA_URL=https://<backend>.vercel.app/media`.
+`SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`, `PUBLIC_MEDIA_URL=https://<backend>.vercel.app/media`,
+optional `SEED_DEMO=true` (demo sellers and 15 products with photos) and `SEED_DEMO_PASSWORD`.
 With `AUTO_MIGRATE=true` the app runs `alembic upgrade head` and creates the categories and first admin when it starts.
 
 **Frontend — Cloudflare Pages** (root `frontend`, build `npm run build`, output `dist`).
 The API address is in `frontend/.env.production`.
 
-**Uploaded files:** Vercel's disk is temporary, so images and documents uploaded there
-disappear. For production set `STORAGE_BACKEND=s3` with an S3-compatible bucket (e.g. Cloudflare R2).
+**Uploaded files:** Vercel's disk is temporary, so on Vercel files are stored in Postgres
+(`STORAGE_BACKEND=database`, the default there). Images are resized to 1600 px WebP on upload,
+and uploads must be under 4 MB (Vercel's request limit). Neon's free plan has 0.5 GB — roughly
+a few thousand product photos. For more, switch to `STORAGE_BACKEND=s3`.
+
+Demo photos come from Wikimedia Commons — see `backend/app/seed_images/CREDITS.md`.

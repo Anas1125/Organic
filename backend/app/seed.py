@@ -8,7 +8,10 @@ Demo accounts use SEED_DEMO_PASSWORD. Safe to run more than once.
 """
 
 import os
+import secrets
 import sys
+import uuid
+from pathlib import Path
 from datetime import date, timedelta
 from decimal import Decimal
 
@@ -20,6 +23,7 @@ from app.db import SessionLocal
 from app.models import (
     BulkPriceTier,
     Category,
+    ProductImage,
     GIRecord,
     OrganicCertification,
     Product,
@@ -76,8 +80,9 @@ def seed_base(db):
 def seed_demo(db):
     password = os.environ.get("SEED_DEMO_PASSWORD") or settings.seed_admin_password
     if not password:
-        print("Set SEED_DEMO_PASSWORD to create demo accounts")
-        return
+        # Products still appear; the demo seller logins just can't be used.
+        print("SEED_DEMO_PASSWORD not set — demo accounts get a random password")
+        password = secrets.token_urlsafe(24)
     pw = hash_password(password)
     cats = {c.slug: c for c in db.scalars(select(Category))}
 
@@ -154,6 +159,26 @@ def seed_demo(db):
                  "Mango-ginger pickle in gingelly oil. 250 g jar.", []),
             ],
         ),
+        dict(
+            email="kongu@example.com",
+            name="Saravanan P",
+            business="Kongu Natural Farms",
+            desc="Family farm near Pollachi growing vegetables and bananas with cow-dung compost "
+            "and no chemical sprays.",
+            city="Pollachi",
+            cert=True,
+            products=[
+                ("Country Drumsticks (Murungakkai)", "vegetables", 60, "kg", 120, 1,
+                 "Pollachi, Tamil Nadu", "Tender, fleshy drumsticks harvested the day they ship. "
+                 "Perfect for sambar and poriyal.", [(10, None, 52)]),
+                ("Raw Nendran Bananas", "fruits", 70, "kg", 200, 2, "Pollachi, Tamil Nadu",
+                 "Green Nendran bananas for chips, curry and steaming. Minimum 2 kg.",
+                 [(2, 9, 70), (10, None, 62)]),
+                ("Kovilpatti Kadalai Mittai", "regional-specialties", 120, "packet", 150, 1,
+                 "Kovilpatti, Tamil Nadu", "Peanut-jaggery candy made the Kovilpatti way with "
+                 "pure cane jaggery. 250 g packet.", [(20, None, 105)]),
+            ],
+        ),
     ]
 
     for sd in sellers:
@@ -223,7 +248,43 @@ def seed_demo(db):
             ]
             db.add(p)
     db.commit()
+    attach_demo_images(db)
     print("Demo data ready (password: SEED_DEMO_PASSWORD from .env)")
+
+
+SEED_IMAGES = Path(__file__).parent / "seed_images"
+DEMO_IMAGES = {  # product name -> file in app/seed_images (credits in CREDITS.md)
+    "Mappillai Samba Rice": "mappillai-samba",
+    "Karuppu Kavuni Black Rice": "black-rice",
+    "Organic Ponni Rice": "ponni-rice",
+    "Ragi (Finger Millet)": "ragi",
+    "Thinai (Foxtail Millet)": "thinai",
+    "Nethili Karuvadu (Dried Anchovy)": "nethili",
+    "Vanjaram Karuvadu (Seer Fish)": "vanjaram",
+    "Sura Karuvadu (Shark)": "sura",
+    "Alleppey Green Cardamom": "cardamom",
+    "Malabar Black Pepper": "pepper",
+    "Cold-Pressed Coconut Oil": "coconut-oil",
+    "Manga Inji Pickle": "pickle",
+    "Country Drumsticks (Murungakkai)": "drumstick",
+    "Raw Nendran Bananas": "banana",
+    "Kovilpatti Kadalai Mittai": "kadalai-mittai",
+}
+
+
+def attach_demo_images(db):
+    """Give demo products their photo if they have none yet. Safe to run more than once."""
+    from app.services.storage import get_storage
+
+    storage = get_storage()
+    for name, stem in DEMO_IMAGES.items():
+        for product in db.scalars(select(Product).where(Product.name == name)):
+            if product.images:
+                continue
+            key = f"products/{uuid.uuid4().hex}.webp"
+            storage.save(key, (SEED_IMAGES / f"{stem}.webp").read_bytes(), "image/webp")
+            db.add(ProductImage(product_id=product.id, path=key, sort_order=0))
+    db.commit()
 
 
 if __name__ == "__main__":

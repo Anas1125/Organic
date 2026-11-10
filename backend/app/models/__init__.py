@@ -8,6 +8,7 @@ from sqlalchemy import (
     ForeignKey,
     JSON,
     Integer,
+    LargeBinary,
     Numeric,
     String,
     Text,
@@ -301,4 +302,16 @@ class ContactMessage(Base):
     email: Mapped[str] = mapped_column(String(255))
     subject: Mapped[str] = mapped_column(String(200))
     message: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class StoredFile(Base):
+    """Uploaded file contents, for hosts without a lasting disk (STORAGE_BACKEND=database)."""
+
+    __tablename__ = "stored_files"
+
+    key: Mapped[str] = mapped_column(String(300), primary_key=True)
+    content_type: Mapped[str] = mapped_column(String(100))
+    size: Mapped[int] = mapped_column(Integer)
+    data: Mapped[bytes] = mapped_column(LargeBinary, deferred=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

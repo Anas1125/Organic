@@ -1,4 +1,4 @@
-from tests.conftest import make_product, make_seller
+from tests.conftest import real_png, make_product, make_seller
 
 
 def test_product_hidden_until_approved(client, seller, admin, category):
@@ -50,7 +50,11 @@ def test_upload_rejects_fake_image(client, seller, admin, category):
     r = client.post(f"/api/v1/seller/products/{pid}/images", headers=seller,
                     files={"files": ("x.png", b"not really a png", "image/png")})
     assert r.status_code == 400
-    png = b"\x89PNG\r\n\x1a\n" + b"0" * 100
+    fake = b"\x89PNG\r\n\x1a\n" + b"0" * 100  # right header, not a real image
+    r = client.post(f"/api/v1/seller/products/{pid}/images", headers=seller,
+                    files={"files": ("x.png", fake, "image/png")})
+    assert r.status_code == 400
+    png = real_png()
     r = client.post(f"/api/v1/seller/products/{pid}/images", headers=seller,
                     files={"files": ("x.png", png, "image/png")})
     assert r.status_code == 201 and len(r.json()["images"]) == 1

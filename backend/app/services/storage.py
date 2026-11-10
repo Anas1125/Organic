@@ -1,9 +1,11 @@
-"""File storage. Local disk in development, any S3-compatible bucket in production.
+"""File storage: local disk in development, the database (free, no extra service) or any
+S3-compatible bucket in production.
 
 Product images are public. Certification / GI documents are private and are only
 served through an authenticated endpoint (see routers/documents.py).
 """
 
+import io
 import uuid
 from pathlib import Path
 from typing import Protocol
@@ -86,13 +88,53 @@ class S3Storage:
         return f"{settings.s3_public_base_url.rstrip('/')}/{key}"
 
 
+class DatabaseStorage:
+    """Keeps file bytes in the stored_files table. Good for small sites on free hosting."""
+
+    def save(self, key: str, data: bytes, content_type: str) -> None:
+        from app.db import SessionLocal
+        from app.models import StoredFile
+
+        with SessionLocal() as db:
+            db.merge(StoredFile(key=key, content_type=content_type, size=len(data), data=data))
+            db.commit()
+
+    def read(self, key: str) -> bytes:
+        from app.db import SessionLocal
+        from app.models import StoredFile
+
+        with SessionLocal() as db:
+            row = db.get(StoredFile, key)
+            if not row:
+                raise HTTPException(status.HTTP_404_NOT_FOUND, "File not found")
+            return row.data
+
+    def delete(self, key: str) -> None:
+        from sqlalchemy import delete
+
+        from app.db import SessionLocal
+        from app.models import StoredFile
+
+        with SessionLocal() as db:
+            db.execute(delete(StoredFile).where(StoredFile.key == key))
+            db.commit()
+
+    def public_url(self, key: str) -> str:
+        return f"{settings.public_media_url}/{key}"
+
+
 _storage: Storage | None = None
 
 
 def get_storage() -> Storage:
     global _storage
     if _storage is None:
-        _storage = S3Storage() if settings.storage_backend == "s3" else LocalStorage(settings.upload_dir)
+        if settings.storage_backend == "s3":
+            _storage = S3Storage()
+        elif settings.storage_backend == "database":
+            _storage = DatabaseStorage()
+        else:
+            _storage = LocalStorage(settings.upload_dir)
     return _storage
 
 
@@ -114,9 +156,33 @@ async def save_upload(file: UploadFile, folder: str, *, kind: str) -> str:
     if not any(data.startswith(sig) for sig in MAGIC[ext]):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "File content does not match its type")
 
+    content_type = file.content_type
+    if kind == "image":
+        data, ext, content_type = optimize_image(data)
+
     key = f"{folder}/{uuid.uuid4().hex}{ext}"
-    get_storage().save(key, data, file.content_type)
+    get_storage().save(key, data, content_type)
     return key
+
+
+def optimize_image(data: bytes) -> tuple[bytes, str, str]:
+    """Check the image really decodes, shrink it to fit IMAGE_MAX_SIDE and save as WebP.
+
+    Returns (bytes, extension, content type). Keeps transparency (logos)."""
+    from PIL import Image, ImageOps
+
+    Image.MAX_IMAGE_PIXELS = 50_000_000  # refuse "decompression bomb" images
+    try:
+        with Image.open(io.BytesIO(data)) as img:
+            img = ImageOps.exif_transpose(img)
+            img.thumbnail((settings.image_max_side, settings.image_max_side))
+            if img.mode not in ("RGB", "RGBA"):
+                img = img.convert("RGBA" if "transparency" in img.info or img.mode in ("LA", "P") else "RGB")
+            out = io.BytesIO()
+            img.save(out, "WEBP", quality=82, method=4)
+    except Exception:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "This image could not be read")
+    return out.getvalue(), ".webp", "image/webp"
 
 
 def media_url(key: str | None) -> str | None:

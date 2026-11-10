@@ -20,7 +20,8 @@ BACKEND_DIR = Path(__file__).resolve().parent.parent
 
 
 def migrate_and_seed() -> None:
-    from app.seed import seed_base  # imported late: it pulls in every model
+    from app.core.config import settings
+    from app.seed import seed_base, seed_demo  # imported late: they pull in every model
 
     with engine.connect() as conn:
         conn.execute(text("SELECT pg_advisory_lock(:id)"), {"id": LOCK_ID})
@@ -30,6 +31,8 @@ def migrate_and_seed() -> None:
             command.upgrade(cfg, "head")
             with SessionLocal() as db:
                 seed_base(db)  # categories + first admin; safe to repeat
+                if settings.seed_demo:
+                    seed_demo(db)  # skips sellers that already exist
         finally:
             conn.execute(text("SELECT pg_advisory_unlock(:id)"), {"id": LOCK_ID})
             conn.commit()
