@@ -5,6 +5,9 @@ import { useToast } from '../context/ToastContext'
 import { Button, Input } from './ui'
 
 const MAX_IMAGES = 6
+const MB = 1024 * 1024
+const MAX_VIDEO_MB = 20
+const PIECE = 3 * MB
 const MAX_POINTS = 8
 
 /**
@@ -49,18 +52,42 @@ function VideoEditor({ product, base, onChange }) {
       setBusy('')
     }
   }
-  const upload = (e) => {
+  const [progress, setProgress] = useState(0)
+
+  // Sent in 3 MB pieces: the server can only accept about 4.5 MB per request.
+  const upload = async (e) => {
     const file = e.target.files[0]
     e.target.value = ''
     if (!file) return
-    if (file.size > 4 * 1024 * 1024) return toast.error('Clips must be under 4 MB. For longer videos, paste a YouTube link.')
-    const fd = new FormData()
-    fd.append('file', file)
-    run('upload', () => api.post(`${base}/video/upload`, fd), 'Video uploaded')
+    if (!['video/mp4', 'video/webm'].includes(file.type)) return toast.error('Please choose an MP4 or WebM video.')
+    if (file.size > MAX_VIDEO_MB * MB) return toast.error(`Videos can be up to ${MAX_VIDEO_MB} MB. For longer videos, upload to YouTube and paste the link.`)
+    const total = Math.ceil(file.size / PIECE)
+    const uploadId = [...crypto.getRandomValues(new Uint8Array(16))].map((b) => b.toString(16).padStart(2, '0')).join('')
+    setBusy('upload')
+    setProgress(0)
+    try {
+      for (let i = 0; i < total; i++) {
+        const fd = new FormData()
+        fd.append('upload_id', uploadId)
+        fd.append('index', i)
+        fd.append('total', total)
+        fd.append('content_type', file.type)
+        fd.append('chunk', file.slice(i * PIECE, (i + 1) * PIECE), 'piece')
+        const { data } = await api.post(`${base}/video/chunk`, fd)
+        setProgress(Math.round(((i + 1) / total) * 100))
+        if (data.done) onChange(data.product)
+      }
+      toast.success('Video uploaded')
+    } catch (err) {
+      toast.error(errorMessage(err))
+    } finally {
+      setBusy('')
+      setProgress(0)
+    }
   }
 
   return (
-    <Section icon={Film} title="Video" hint="Shown first in the product gallery. Paste a YouTube or Vimeo link (any length), or upload a short MP4/WebM clip under 4 MB.">
+    <Section icon={Film} title="Video" hint="Shown first in the product gallery. Upload an MP4 or WebM from your computer (up to 20 MB, about 1–2 minutes), or paste a YouTube / Vimeo link for longer videos.">
       {v ? (
         <div className="flex flex-wrap items-center gap-3 rounded-xl border border-line bg-canvas p-3">
           <div className="grid size-12 shrink-0 place-items-center rounded-lg bg-brand-900 text-white"><Film className="size-5" /></div>
@@ -80,10 +107,15 @@ function VideoEditor({ product, base, onChange }) {
         </div>
         <Button type="button" variant="secondary" disabled={!link.trim()} loading={busy === 'link'} onClick={() => run('link', () => api.put(`${base}/video`, { url: link.trim() }), 'Video saved')}>Save link</Button>
         <label className={`inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-full border border-line bg-white px-4 text-sm font-semibold hover:bg-brand-50 ${busy === 'upload' ? 'pointer-events-none opacity-60' : ''}`}>
-          <Upload className="size-4" /> {busy === 'upload' ? 'Uploading…' : 'Upload clip'}
+          <Upload className="size-4" /> {busy === 'upload' ? `Uploading… ${progress}%` : 'Upload from computer'}
           <input type="file" accept="video/mp4,video/webm" className="hidden" onChange={upload} />
         </label>
       </div>
+      {busy === 'upload' && (
+        <div className="mt-3 h-2 overflow-hidden rounded-full bg-brand-100" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}>
+          <div className="h-full rounded-full bg-brand-700 transition-all" style={{ width: `${progress}%` }} />
+        </div>
+      )}
     </Section>
   )
 }

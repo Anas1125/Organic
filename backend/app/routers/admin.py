@@ -2,7 +2,7 @@ import re
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from pydantic import BaseModel
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
@@ -284,6 +284,25 @@ async def admin_upload_video(
     db.commit()
     media.delete_files(old)
     return _fresh(db, product_id)
+
+
+@router.post("/products/{product_id}/video/chunk", response_model=s.ChunkUploadOut)
+async def admin_upload_video_chunk(
+    product_id: int,
+    upload_id: str = Form(...),
+    index: int = Form(...),
+    total: int = Form(...),
+    content_type: str = Form(...),
+    chunk: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    p = _product(db, product_id)
+    done, old = await media.upload_video_chunk(p, upload_id, index, total, content_type, chunk)
+    if not done:
+        return s.ChunkUploadOut(done=False)
+    db.commit()
+    media.delete_files(old)
+    return s.ChunkUploadOut(done=True, product=_fresh(db, product_id))
 
 
 @router.delete("/products/{product_id}/video", response_model=s.SellerProductOut)

@@ -255,6 +255,27 @@ async def upload_video(
     return product_out(_own_product(db, seller, p.id), for_seller=True)
 
 
+@router.post("/products/{product_id}/video/chunk", response_model=s.ChunkUploadOut)
+async def upload_video_chunk(
+    product_id: int,
+    upload_id: str = Form(...),
+    index: int = Form(...),
+    total: int = Form(...),
+    content_type: str = Form(...),
+    chunk: UploadFile = File(...),
+    seller: SellerProfile = Depends(get_approved_seller),
+    db: Session = Depends(get_db),
+):
+    """Videos up to 20 MB, sent in 3 MB pieces (Vercel limits each request to 4.5 MB)."""
+    p = _own_product(db, seller, product_id)
+    done, old = await media.upload_video_chunk(p, upload_id, index, total, content_type, chunk)
+    if not done:
+        return s.ChunkUploadOut(done=False)
+    db.commit()
+    media.delete_files(old)
+    return s.ChunkUploadOut(done=True, product=product_out(_own_product(db, seller, p.id), for_seller=True))
+
+
 @router.delete("/products/{product_id}/video", response_model=s.SellerProductOut)
 def delete_video(
     product_id: int,

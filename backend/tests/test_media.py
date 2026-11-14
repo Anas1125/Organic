@@ -56,3 +56,62 @@ def test_admin_manages_any_product_media(client, seller, admin, buyer, category)
     # Buyers and sellers can't use the admin routes
     assert client.patch(base, json={"key_points": []}, headers=buyer).status_code == 403
     assert client.patch(base, json={"key_points": []}, headers=seller).status_code == 403
+
+
+def _send_in_pieces(client, url, headers, video, piece=3 * 1024 * 1024, upload_id="ab" * 16):
+    parts = [video[i : i + piece] for i in range(0, len(video), piece)]
+    r = None
+    for i, part in enumerate(parts):
+        r = client.post(url, headers=headers, data={"upload_id": upload_id, "index": i, "total": len(parts), "content_type": "video/mp4"},
+                        files={"chunk": ("blob", part, "application/octet-stream")})
+        assert r.status_code == 200, r.text
+        assert r.json()["done"] == (i == len(parts) - 1)
+    return r.json()
+
+
+def _check_pieces(client, video, url):
+    # The whole file comes back in capped pieces, as a browser would request it
+    got, start = b"", 0
+    while start < len(video):
+        r = client.get(url, headers={"Range": f"bytes={start}-"})
+        assert r.status_code == 206 and len(r.content) <= 3 * 1024 * 1024
+        got += r.content
+        start += len(r.content)
+    assert got == video
+
+
+def test_large_video_in_pieces(client, seller, admin, category):
+    pid = make_product(client, seller, admin, category)
+    video = MP4 + bytes(range(256)) * (7 * 1024 * 1024 // 256)  # ~7 MB → 3 pieces
+    out = _send_in_pieces(client, f"/api/v1/seller/products/{pid}/video/chunk", seller, video)
+    url = out["product"]["video"]["url"]
+    assert url.endswith(".mp4")
+    _check_pieces(client, video, url)
+    # A plain request (no Range) gets the first piece only
+    r = client.get(url)
+    assert r.status_code == 206 and r.headers["content-range"].startswith("bytes 0-3145727/")
+
+
+def test_large_video_database_storage(client, admin, category, seller, monkeypatch):
+    from app.services import storage
+
+    monkeypatch.setattr(storage, "_storage", storage.DatabaseStorage())
+    pid = make_product(client, seller, admin, category)
+    video = MP4 + b"\x01" * (5 * 1024 * 1024)
+    out = _send_in_pieces(client, f"/api/v1/admin/products/{pid}/video/chunk", admin, video)
+    _check_pieces(client, video, out["product"]["video"]["url"])
+
+
+def test_video_piece_limits(client, seller, admin, category):
+    pid = make_product(client, seller, admin, category)
+    url = f"/api/v1/seller/products/{pid}/video/chunk"
+    form = {"upload_id": "cd" * 16, "index": 0, "content_type": "video/mp4"}
+    # More than 20 MB worth of pieces is refused up front
+    r = client.post(url, headers=seller, data={**form, "total": 8}, files={"chunk": ("b", MP4, "application/octet-stream")})
+    assert r.status_code == 400
+    # First piece must look like a real video
+    r = client.post(url, headers=seller, data={**form, "total": 2}, files={"chunk": ("b", b"nope" * 10, "application/octet-stream")})
+    assert r.status_code == 400
+    # Last piece without the earlier ones
+    r = client.post(url, headers=seller, data={**form, "index": 1, "total": 2}, files={"chunk": ("b", b"x" * 10, "application/octet-stream")})
+    assert r.status_code == 400

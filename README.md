@@ -86,7 +86,8 @@ The API address is in `frontend/.env.production`.
 
 **Uploaded files:** Vercel's disk is temporary, so on Vercel files are stored in Postgres
 (`STORAGE_BACKEND=database`, the default there). Images are resized to 1600 px WebP on upload,
-and uploads must be under 4 MB (Vercel's request limit). Neon's free plan has 0.5 GB — roughly
+and single uploads must be under 4 MB (Vercel's request limit). Product videos up to 20 MB
+are sent from the browser in 3 MB pieces and played back in 3 MB ranges for the same reason. Neon's free plan has 0.5 GB — roughly
 a few thousand product photos. For more, switch to `STORAGE_BACKEND=s3`.
 
 Demo photos come from Wikimedia Commons — see `backend/app/seed_images/CREDITS.md`.

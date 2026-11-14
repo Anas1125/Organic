@@ -266,6 +266,11 @@ class SellerProductOut(ProductOut):
     updated_at: datetime
 
 
+class ChunkUploadOut(BaseModel):
+    done: bool
+    product: SellerProductOut | None = None
+
+
 class SellerStorefront(BaseModel):
     seller: SellerPublic
     products: list[ProductOut]

@@ -39,6 +39,8 @@ class Storage(Protocol):
     def read(self, key: str) -> bytes: ...
     def delete(self, key: str) -> None: ...
     def public_url(self, key: str) -> str: ...
+    def size(self, key: str) -> int: ...
+    def read_range(self, key: str, start: int, length: int) -> bytes: ...
 
 
 class LocalStorage:
@@ -69,6 +71,17 @@ class LocalStorage:
     def public_url(self, key: str) -> str:
         return f"{settings.public_media_url}/{key}"
 
+    def size(self, key: str) -> int:
+        path = self._path(key)
+        if not path.exists():
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "File not found")
+        return path.stat().st_size
+
+    def read_range(self, key: str, start: int, length: int) -> bytes:
+        with self._path(key).open("rb") as f:
+            f.seek(start)
+            return f.read(length)
+
 
 class S3Storage:
     def __init__(self):
@@ -94,6 +107,13 @@ class S3Storage:
 
     def public_url(self, key: str) -> str:
         return f"{settings.s3_public_base_url.rstrip('/')}/{key}"
+
+    def size(self, key: str) -> int:
+        return self.client.head_object(Bucket=self.bucket, Key=key)["ContentLength"]
+
+    def read_range(self, key: str, start: int, length: int) -> bytes:
+        rng = f"bytes={start}-{start + length - 1}"
+        return self.client.get_object(Bucket=self.bucket, Key=key, Range=rng)["Body"].read()
 
 
 class DatabaseStorage:
@@ -129,6 +149,33 @@ class DatabaseStorage:
 
     def public_url(self, key: str) -> str:
         return f"{settings.public_media_url}/{key}"
+
+    def size(self, key: str) -> int:
+        from sqlalchemy import select
+
+        from app.db import SessionLocal
+        from app.models import StoredFile
+
+        with SessionLocal() as db:
+            n = db.scalar(select(StoredFile.size).where(StoredFile.key == key))
+        if n is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "File not found")
+        return n
+
+    def read_range(self, key: str, start: int, length: int) -> bytes:
+        """Only the requested bytes leave the database (Postgres substring is 1-based)."""
+        from sqlalchemy import func, select
+
+        from app.db import SessionLocal
+        from app.models import StoredFile
+
+        with SessionLocal() as db:
+            data = db.scalar(
+                select(func.substring(StoredFile.data, start + 1, length)).where(StoredFile.key == key)
+            )
+        if data is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "File not found")
+        return bytes(data)
 
 
 _storage: Storage | None = None

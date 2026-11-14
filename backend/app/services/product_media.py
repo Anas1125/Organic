@@ -1,12 +1,14 @@
 """Product video, extra photos and key points — shared by the seller and admin routes."""
 
 import re
+import uuid
 
 from fastapi import HTTPException, UploadFile, status
 
 from app import schemas as s
 from app.models import Product, ProductImage
-from app.services.storage import get_storage, media_url, save_upload
+from app.core.config import settings
+from app.services.storage import VIDEO_TYPES, _matches, get_storage, media_url, save_upload
 
 MAX_IMAGES = 6
 MAX_KEY_POINTS = 8
@@ -71,6 +73,60 @@ async def upload_video(p: Product, file: UploadFile) -> str | None:
     old = _drop_uploaded(p)
     p.video = key
     return old
+
+
+_UPLOAD_ID = re.compile(r"^[a-f0-9]{32}$")
+MB = 1024 * 1024
+
+
+async def upload_video_chunk(
+    p: Product, upload_id: str, index: int, total: int, content_type: str, chunk: UploadFile
+) -> tuple[bool, str | None]:
+    """Receive one piece of a video. Pieces must arrive in order (0, 1, 2 …).
+
+    Returns (finished, old_key). When the last piece arrives the pieces are joined,
+    checked and saved as the product's video."""
+    max_parts = -(-settings.max_video_mb // settings.upload_chunk_mb)  # ceiling
+    if not _UPLOAD_ID.match(upload_id) or not 0 <= index < total <= max_parts:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, f"Videos can be up to {settings.max_video_mb} MB"
+        )
+    ext = VIDEO_TYPES.get(content_type)
+    if not ext:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Unsupported file type. Allowed: MP4, WEBM")
+    data = await chunk.read(settings.upload_chunk_mb * MB + 1)
+    if not data or len(data) > settings.upload_chunk_mb * MB:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Upload piece is empty or too large")
+    if index == 0 and not _matches(data, ext):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "File content does not match its type")
+
+    storage = get_storage()
+    prefix = f"tmp/{p.id}/{upload_id}"
+    storage.save(f"{prefix}/{index:04d}", data, "application/octet-stream")
+    if index < total - 1:
+        return False, None
+
+    parts = []
+    try:
+        for i in range(total):
+            parts.append(storage.read(f"{prefix}/{i:04d}"))
+    except HTTPException:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Some pieces are missing — please upload again")
+    finally:
+        for i in range(total):
+            storage.delete(f"{prefix}/{i:04d}")
+    video = b"".join(parts)
+    if len(video) > settings.max_video_mb * MB:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, f"Videos can be up to {settings.max_video_mb} MB"
+        )
+    if not _matches(video, ext):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "File content does not match its type")
+    key = f"products/{p.id}/{uuid.uuid4().hex}{ext}"
+    storage.save(key, video, content_type)
+    old = _drop_uploaded(p)
+    p.video = key
+    return True, old
 
 
 def remove_video(p: Product) -> str | None:
