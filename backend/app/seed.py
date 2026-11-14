@@ -198,25 +198,39 @@ SEED_IMAGES = Path(__file__).parent / "seed_images"
 
 
 def attach_demo_images(db):
-    """Give sample products their photo if they have none yet (credits in CREDITS.md)."""
-    from app.gi_catalog import SELLERS
+    """Fill in sample products' photos, video and key points where they are missing.
+    Runs on every cold start, so it uses one query and only writes what is missing."""
+    from sqlalchemy.orm import selectinload
+
+    from app.gi_catalog import KEY_POINTS, SELLERS, VIDEOS
     from app.services.storage import get_storage
 
-    photos = {
-        name: SEED_IMAGES / f"{photo}.webp"
-        for sd in SELLERS
-        for (name, *_rest, photo) in sd["products"]
-        if (SEED_IMAGES / f"{photo}.webp").exists()
-    }
-    # One query for sample products that still have no photo.
-    missing = db.scalars(
-        select(Product).where(Product.name.in_(list(photos)), ~Product.images.any())
-    ).all()
+    photos: dict[str, list[Path]] = {}
+    for sd in SELLERS:
+        for (name, *_rest, stem) in sd["products"]:
+            files = [SEED_IMAGES / f"{stem}.webp"] + [SEED_IMAGES / f"{stem}-{n}.webp" for n in range(2, 7)]
+            photos[name] = [f for f in files if f.exists()]
+
     storage = get_storage()
-    for product in missing:
-        key = f"products/{uuid.uuid4().hex}.webp"
-        storage.save(key, photos[product.name].read_bytes(), "image/webp")
-        db.add(ProductImage(product_id=product.id, path=key, sort_order=0))
+    sample_emails = [sd["email"] for sd in SELLERS]
+    products = db.scalars(
+        select(Product)
+        .join(SellerProfile, Product.seller_id == SellerProfile.id)
+        .join(User, SellerProfile.user_id == User.id)
+        .where(User.email.in_(sample_emails))
+        .options(selectinload(Product.images))
+    ).all()
+    for product in products:
+        files = photos.get(product.name, [])
+        # Only add photos the product doesn't have yet (by position), never remove any.
+        for order, file in enumerate(files[len(product.images):], start=len(product.images)):
+            key = f"products/{uuid.uuid4().hex}.webp"
+            storage.save(key, file.read_bytes(), "image/webp")
+            db.add(ProductImage(product_id=product.id, path=key, sort_order=order))
+        if product.key_points is None and product.name in KEY_POINTS:
+            product.key_points = KEY_POINTS[product.name]
+        if product.video is None and product.name in VIDEOS:
+            product.video = VIDEOS[product.name]
     db.commit()
 
 

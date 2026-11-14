@@ -1,7 +1,8 @@
-import { BadgeCheck, FolderTree, Leaf, Package, Pencil, Plus, Search, Trash2 } from 'lucide-react'
+import { BadgeCheck, Clapperboard, FolderTree, Leaf, Package, Pencil, Plus, Search, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import api, { errorMessage } from '../../api/client'
+import MediaEditor from '../../components/MediaEditor'
 import { ProductImage } from '../../components/product'
 import { Button, EmptyState, ErrorBox, Field, Input, Modal, PageHeader, Spinner, StatusBadge, Tabs, Textarea } from '../../components/ui'
 import { useToast } from '../../context/ToastContext'
@@ -16,6 +17,11 @@ export function AdminProducts() {
   const { data, setData, loading, error, reload } = useFetch('/admin/products')
   const [rejecting, setRejecting] = useState(null)
   const [viewing, setViewing] = useState(null)
+  const [media, setMedia] = useState(null)
+  const updated = (p) => {
+    setData(data.map((x) => (x.id === p.id ? p : x)))
+    setMedia(p)
+  }
 
   const review = async (p, status, reason) => {
     try {
@@ -65,6 +71,7 @@ export function AdminProducts() {
                 </div>
               </button>
               <div className="flex shrink-0 gap-2">
+                <Button size="sm" variant="outline" onClick={() => setMedia(p)}><Clapperboard className="size-4" /> Edit media</Button>
                 {p.status !== 'approved' && <Button size="sm" onClick={() => review(p, 'approved')}>Approve</Button>}
                 {p.status !== 'rejected' && <Button size="sm" variant="danger-soft" onClick={() => setRejecting(p)}>Reject</Button>}
               </div>
@@ -100,6 +107,10 @@ export function AdminProducts() {
             )}
           </div>
         )}
+      </Modal>
+      <Modal open={Boolean(media)} onClose={() => setMedia(null)} title={media ? `Media · ${media.name}` : ''} wide
+        footer={<Button onClick={() => setMedia(null)}>Done</Button>}>
+        {media && <MediaEditor product={media} base={`/admin/products/${media.id}`} onChange={updated} />}
       </Modal>
       <ReviewDialog open={Boolean(rejecting)} title={`Reject ${rejecting?.name || ''}`} onClose={() => setRejecting(null)} onSubmit={(reason) => review(rejecting, 'rejected', reason)} />
     </>

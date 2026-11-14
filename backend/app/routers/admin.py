@@ -2,7 +2,7 @@ import re
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from pydantic import BaseModel
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
@@ -22,6 +22,7 @@ from app.models import (
     User,
 )
 from app.models.enums import GIVerification, OrderStatus, ReviewStatus, Role
+from app.services import product_media as media
 from app.services.orders import ORDER_LOAD, change_status
 from app.services.queries import PRODUCT_LOAD
 from app.services.serializers import cert_out, gi_out, order_out, product_out, user_out
@@ -223,6 +224,75 @@ def review_product(product_id: int, body: s.StatusChange, db: Session = Depends(
     db.commit()
     db.refresh(p)
     return product_out(p, for_seller=True)
+
+
+def _product(db: Session, product_id: int) -> Product:
+    p = db.scalar(select(Product).where(Product.id == product_id).options(*PRODUCT_LOAD))
+    if not p:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Product not found")
+    return p
+
+
+def _fresh(db: Session, product_id: int):
+    db.expire_all()
+    return product_out(_product(db, product_id), for_seller=True)
+
+
+@router.patch("/products/{product_id}", response_model=s.SellerProductOut)
+def edit_product_details(product_id: int, body: s.KeyPointsIn, db: Session = Depends(get_db)):
+    """Admins can curate key points on any product (no re-review needed)."""
+    p = _product(db, product_id)
+    p.key_points = media.clean_key_points(body.key_points)
+    db.commit()
+    return _fresh(db, product_id)
+
+
+@router.post("/products/{product_id}/images", response_model=s.SellerProductOut, status_code=201)
+async def admin_add_images(
+    product_id: int, files: list[UploadFile] = File(...), db: Session = Depends(get_db)
+):
+    p = _product(db, product_id)
+    await media.add_images(p, files)
+    db.commit()
+    return _fresh(db, product_id)
+
+
+@router.delete("/products/{product_id}/images/{image_id}", response_model=s.SellerProductOut)
+def admin_remove_image(product_id: int, image_id: int, db: Session = Depends(get_db)):
+    p = _product(db, product_id)
+    key = media.remove_image(p, image_id)
+    db.commit()
+    media.delete_files(key)
+    return _fresh(db, product_id)
+
+
+@router.put("/products/{product_id}/video", response_model=s.SellerProductOut)
+def admin_set_video_link(product_id: int, body: s.VideoLinkIn, db: Session = Depends(get_db)):
+    p = _product(db, product_id)
+    old = media.set_video_link(p, body.url)
+    db.commit()
+    media.delete_files(old)
+    return _fresh(db, product_id)
+
+
+@router.post("/products/{product_id}/video/upload", response_model=s.SellerProductOut)
+async def admin_upload_video(
+    product_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)
+):
+    p = _product(db, product_id)
+    old = await media.upload_video(p, file)
+    db.commit()
+    media.delete_files(old)
+    return _fresh(db, product_id)
+
+
+@router.delete("/products/{product_id}/video", response_model=s.SellerProductOut)
+def admin_remove_video(product_id: int, db: Session = Depends(get_db)):
+    p = _product(db, product_id)
+    old = media.remove_video(p)
+    db.commit()
+    media.delete_files(old)
+    return _fresh(db, product_id)
 
 
 # ---------- Categories ----------

@@ -16,6 +16,7 @@ from app.core.config import settings
 
 IMAGE_TYPES = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
 DOCUMENT_TYPES = {**IMAGE_TYPES, "application/pdf": ".pdf"}
+VIDEO_TYPES = {"video/mp4": ".mp4", "video/webm": ".webm"}
 
 # File signatures, so a renamed .exe can't pass as a .pdf
 MAGIC = {
@@ -23,7 +24,14 @@ MAGIC = {
     ".png": [b"\x89PNG\r\n\x1a\n"],
     ".webp": [b"RIFF"],
     ".pdf": [b"%PDF"],
+    ".webm": [b"\x1aE\xdf\xa3"],
 }
+
+
+def _matches(data: bytes, ext: str) -> bool:
+    if ext == ".mp4":  # ISO media: "ftyp" box right after the 4-byte size
+        return data[4:8] == b"ftyp"
+    return any(data.startswith(sig) for sig in MAGIC[ext])
 
 
 class Storage(Protocol):
@@ -139,9 +147,12 @@ def get_storage() -> Storage:
 
 
 async def save_upload(file: UploadFile, folder: str, *, kind: str) -> str:
-    """Validate and store an upload. kind = 'image' | 'document'. Returns the storage key."""
-    allowed = IMAGE_TYPES if kind == "image" else DOCUMENT_TYPES
-    max_mb = settings.max_image_mb if kind == "image" else settings.max_document_mb
+    """Validate and store an upload. kind = 'image' | 'document' | 'video'. Returns the key."""
+    allowed, max_mb = {
+        "image": (IMAGE_TYPES, settings.max_image_mb),
+        "video": (VIDEO_TYPES, settings.max_video_mb),
+        "document": (DOCUMENT_TYPES, settings.max_document_mb),
+    }[kind]
 
     ext = allowed.get(file.content_type or "")
     if not ext:
@@ -153,7 +164,7 @@ async def save_upload(file: UploadFile, folder: str, *, kind: str) -> str:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, f"File is larger than {max_mb} MB")
     if not data:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "File is empty")
-    if not any(data.startswith(sig) for sig in MAGIC[ext]):
+    if not _matches(data, ext):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "File content does not match its type")
 
     content_type = file.content_type

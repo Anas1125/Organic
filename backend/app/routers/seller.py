@@ -26,11 +26,12 @@ from app.services.orders import ORDER_LOAD, change_status
 from app.services.pricing import validate_tiers
 from app.services.queries import PRODUCT_LOAD
 from app.services.serializers import cert_out, gi_out, order_out, product_out
+from app.services import product_media as media
 from app.services.storage import get_storage, save_upload
 
 router = APIRouter(prefix="/seller", tags=["Seller"])
 
-MAX_IMAGES = 6
+MAX_IMAGES = media.MAX_IMAGES
 # Changing these on an approved product sends it back for admin review.
 REVIEWED_FIELDS = {
     "name",
@@ -137,7 +138,8 @@ def create_product(
     p = Product(
         seller_id=seller.id,
         status=ReviewStatus.PENDING,
-        **body.model_dump(exclude={"price_tiers"}),
+        **body.model_dump(exclude={"price_tiers", "key_points"}),
+        key_points=media.clean_key_points(body.key_points),
     )
     p.price_tiers = [BulkPriceTier(**t) for t in tiers]
     db.add(p)
@@ -161,6 +163,9 @@ def update_product(
         changes.get("organic_certification_id"),
         changes.get("gi_record_id"),
     )
+
+    if "key_points" in changes:
+        p.key_points = media.clean_key_points(changes.pop("key_points"))
 
     if "price_tiers" in changes:
         tiers = changes.pop("price_tiers") or []
@@ -189,11 +194,10 @@ def delete_product(
     db: Session = Depends(get_db),
 ):
     p = _own_product(db, seller, product_id)
-    keys = [img.path for img in p.images]
+    keys = [img.path for img in p.images] + [media.remove_video(p)]
     db.delete(p)  # order history keeps its own copy of the product name and price
     db.commit()
-    for key in keys:
-        get_storage().delete(key)
+    media.delete_files(*keys)
 
 
 @router.post("/products/{product_id}/images", response_model=s.SellerProductOut, status_code=201)
@@ -204,14 +208,7 @@ async def upload_images(
     db: Session = Depends(get_db),
 ):
     p = _own_product(db, seller, product_id)
-    if len(p.images) + len(files) > MAX_IMAGES:
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST, f"A product can have at most {MAX_IMAGES} images"
-        )
-    next_order = max((i.sort_order for i in p.images), default=-1) + 1
-    for offset, f in enumerate(files):
-        key = await save_upload(f, f"products/{p.id}", kind="image")
-        p.images.append(ProductImage(path=key, sort_order=next_order + offset))
+    await media.add_images(p, files)
     db.commit()
     return product_out(_own_product(db, seller, p.id), for_seller=True)
 
@@ -224,13 +221,50 @@ def delete_image(
     db: Session = Depends(get_db),
 ):
     p = _own_product(db, seller, product_id)
-    img = next((i for i in p.images if i.id == image_id), None)
-    if not img:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Image not found")
-    key = img.path
-    p.images.remove(img)
+    key = media.remove_image(p, image_id)
     db.commit()
-    get_storage().delete(key)
+    media.delete_files(key)
+    return product_out(_own_product(db, seller, p.id), for_seller=True)
+
+
+@router.put("/products/{product_id}/video", response_model=s.SellerProductOut)
+def set_video_link(
+    product_id: int,
+    body: s.VideoLinkIn,
+    seller: SellerProfile = Depends(get_approved_seller),
+    db: Session = Depends(get_db),
+):
+    p = _own_product(db, seller, product_id)
+    old = media.set_video_link(p, body.url)
+    db.commit()
+    media.delete_files(old)
+    return product_out(_own_product(db, seller, p.id), for_seller=True)
+
+
+@router.post("/products/{product_id}/video/upload", response_model=s.SellerProductOut)
+async def upload_video(
+    product_id: int,
+    file: UploadFile = File(...),
+    seller: SellerProfile = Depends(get_approved_seller),
+    db: Session = Depends(get_db),
+):
+    p = _own_product(db, seller, product_id)
+    old = await media.upload_video(p, file)
+    db.commit()
+    media.delete_files(old)
+    return product_out(_own_product(db, seller, p.id), for_seller=True)
+
+
+@router.delete("/products/{product_id}/video", response_model=s.SellerProductOut)
+def delete_video(
+    product_id: int,
+    seller: SellerProfile = Depends(get_current_seller),
+    db: Session = Depends(get_db),
+):
+    p = _own_product(db, seller, product_id)
+    old = media.remove_video(p)
+    db.commit()
+    media.delete_files(old)
     return product_out(_own_product(db, seller, p.id), for_seller=True)
 
 

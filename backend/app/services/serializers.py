@@ -2,6 +2,7 @@ from datetime import date
 
 from app import schemas as s
 from app.models import GIRecord, Order, OrganicCertification, Product, User
+from app.services.product_media import video_out
 from app.services.storage import media_url
 
 
@@ -26,6 +27,8 @@ def product_out(p: Product, *, for_seller: bool = False) -> s.ProductOut:
         min_order_qty=p.min_order_qty,
         origin=p.origin,
         images=[s.ImageOut(id=i.id, url=media_url(i.path)) for i in p.images],
+        video=video_out(p),
+        key_points=p.key_points or [],
         price_tiers=[s.TierOut.model_validate(t) for t in p.price_tiers],
         is_organic_verified=p.is_organic_verified,
         is_gi_verified=p.is_gi_verified,

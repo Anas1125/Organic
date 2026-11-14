@@ -168,6 +168,7 @@ class ProductIn(BaseModel):
     organic_certification_id: int | None = None
     gi_record_id: int | None = None
     price_tiers: list[TierIn] = Field(default_factory=list, max_length=10)
+    key_points: list[str] = Field(default_factory=list, max_length=8)
 
     @field_validator("unit")
     @classmethod
@@ -190,6 +191,7 @@ class ProductUpdate(BaseModel):
     organic_certification_id: int | None = None
     gi_record_id: int | None = None
     price_tiers: list[TierIn] | None = Field(default=None, max_length=10)
+    key_points: list[str] | None = Field(default=None, max_length=8)
 
     @field_validator("unit")
     @classmethod
@@ -202,6 +204,21 @@ class ProductUpdate(BaseModel):
 class ImageOut(BaseModel):
     id: int
     url: str
+
+
+class VideoOut(BaseModel):
+    url: str
+    kind: Literal["youtube", "vimeo", "file"]
+    embed_url: str | None = None  # for YouTube / Vimeo players
+    thumbnail: str | None = None
+
+
+class VideoLinkIn(BaseModel):
+    url: str = Field(min_length=10, max_length=500)
+
+
+class KeyPointsIn(BaseModel):
+    key_points: list[str] = Field(default_factory=list, max_length=8)
 
 
 class OrganicBadge(BaseModel):
@@ -230,6 +247,8 @@ class ProductOut(BaseModel):
     min_order_qty: int
     origin: str | None
     images: list[ImageOut]
+    video: VideoOut | None = None
+    key_points: list[str] = []
     price_tiers: list[TierOut]
     is_organic_verified: bool
     is_gi_verified: bool

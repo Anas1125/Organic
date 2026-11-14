@@ -4,12 +4,14 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import api, { errorMessage } from '../../api/client'
 import { Button, ErrorBox, Field, Input, PageHeader, Select, Spinner, StatusBadge, Textarea } from '../../components/ui'
 import { useToast } from '../../context/ToastContext'
+import MediaEditor from '../../components/MediaEditor'
 import useFetch from '../../hooks/useFetch'
 import { UNITS, money } from '../../lib/format'
 
 const EMPTY = {
   name: '', description: '', category_id: '', price: '', unit: 'kg', stock: '', min_order_qty: 1,
   origin: '', is_active: true, organic_certification_id: '', gi_record_id: '', price_tiers: [],
+  key_points: '',
 }
 
 function TierEditor({ tiers, onChange, unit, basePrice }) {
@@ -112,6 +114,7 @@ export default function ProductForm() {
     setForm({
       ...EMPTY,
       ...Object.fromEntries(Object.keys(EMPTY).map((k) => [k, existing[k] ?? EMPTY[k]])),
+      key_points: '',
       category_id: existing.category.id,
       price_tiers: existing.price_tiers.map(({ min_qty, max_qty, unit_price }) => ({ min_qty, max_qty: max_qty ?? '', unit_price })),
     })
@@ -132,7 +135,10 @@ export default function ProductForm() {
       organic_certification_id: form.organic_certification_id ? Number(form.organic_certification_id) : null,
       gi_record_id: form.gi_record_id ? Number(form.gi_record_id) : null,
       price_tiers: form.price_tiers.map((t) => ({ min_qty: Number(t.min_qty), max_qty: t.max_qty === '' ? null : Number(t.max_qty), unit_price: t.unit_price })),
+      key_points: form.key_points.split('\n').map((l) => l.trim()).filter(Boolean),
     }
+    // When editing, key points are saved from the Media section instead.
+    if (editing) delete body.key_points
     try {
       if (editing) {
         const { data } = await api.patch(`/seller/products/${id}`, body)
@@ -185,10 +191,23 @@ export default function ProductForm() {
           </div>
         </section>
 
-        <section className="card space-y-4 p-5 sm:p-6">
-          <h2 className="font-semibold">Photos</h2>
-          <ImageManager product={existing} pending={pendingImages} setPending={setPendingImages} onProductChange={setExisting} />
-        </section>
+        {editing && existing ? (
+          <section className="card space-y-4 p-5 sm:p-6">
+            <div>
+              <h2 className="font-semibold">Video, photos & key points</h2>
+              <p className="text-sm text-muted">These save straight away and don't need admin review.</p>
+            </div>
+            <MediaEditor product={existing} base={`/seller/products/${existing.id}`} onChange={setExisting} />
+          </section>
+        ) : (
+          <section className="card space-y-4 p-5 sm:p-6">
+            <h2 className="font-semibold">Photos & key points</h2>
+            <ImageManager product={null} pending={pendingImages} setPending={setPendingImages} onProductChange={setExisting} />
+            <Field label="Key points" hint="One per line, up to 8. You can add a video after saving.">
+              <Textarea rows={4} value={form.key_points} onChange={set('key_points')} placeholder={'Pure mulberry silk with real zari\nWoven on a pit loom in 10 days'} />
+            </Field>
+          </section>
+        )}
 
         <section className="card space-y-4 p-5 sm:p-6">
           <h2 className="font-semibold">Price & stock</h2>

@@ -1,7 +1,8 @@
-import { BadgeCheck, ChevronLeft, Leaf, MapPin, Package, ShoppingCart, Store, Zap } from 'lucide-react'
+import { BadgeCheck, CheckCircle2, ChevronLeft, Leaf, MapPin, Package, ShoppingCart, Store, Zap } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import api from '../../api/client'
+import ProductGallery from '../../components/ProductGallery'
 import { GIBadge, OrganicBadge, PriceTiers, ProductCardSkeleton, ProductGrid, ProductImage, QuantityStepper, useAddToCart } from '../../components/product'
 import { Button, EmptyState, Spinner } from '../../components/ui'
 import useFetch from '../../hooks/useFetch'
@@ -14,10 +15,9 @@ export default function ProductDetail() {
   const navigate = useNavigate()
   const { data: p, loading, error } = useFetch(`/products/${id}`)
   const [qty, setQty] = useState(1)
-  const [img, setImg] = useState(0)
   const { addToCart, buyNow, busy, buying } = useAddToCart()
 
-  useEffect(() => { if (p) { setQty(p.min_order_qty); setImg(0) } }, [p])
+  useEffect(() => { if (p) setQty(p.min_order_qty) }, [p])
 
   if (loading) return <Spinner className="min-h-[60vh]" />
   if (error || !p) {
@@ -40,20 +40,7 @@ export default function ProductDetail() {
       </button>
 
       <div className="grid gap-8 lg:grid-cols-2 lg:gap-12">
-        <div>
-          <div className="card aspect-square overflow-hidden">
-            <ProductImage product={p} src={p.images[img]?.url ?? null} iconSize="size-28" />
-          </div>
-          {p.images.length > 1 && (
-            <div className="mt-3 flex gap-2 overflow-x-auto">
-              {p.images.map((im, i) => (
-                <button key={im.id} onClick={() => setImg(i)} className={`size-16 shrink-0 overflow-hidden rounded-xl border-2 sm:size-20 ${i === img ? 'border-brand-700' : 'border-transparent'}`}>
-                  <img src={im.url} alt="" className="h-full w-full object-cover" />
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        <ProductGallery product={p} />
 
         <div>
           <div className="flex flex-wrap gap-2">
@@ -66,6 +53,16 @@ export default function ProductDetail() {
             <Store className="size-4" /> {p.seller.business_name}
           </Link>
           {p.origin && <div className="mt-1 flex items-center gap-1.5 text-sm text-muted"><MapPin className="size-4" /> {p.origin}</div>}
+
+          {p.key_points?.length > 0 && (
+            <ul className="mt-5 space-y-2 rounded-2xl border border-brand-100 bg-white p-4">
+              {p.key_points.map((pt, i) => (
+                <li key={i} className="flex gap-2.5 text-sm leading-snug">
+                  <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-brand-600" /> {pt}
+                </li>
+              ))}
+            </ul>
+          )}
 
           <div className="mt-5 flex items-baseline gap-2">
             <span className="text-3xl font-bold text-brand-800">{money(unitPrice)}</span>

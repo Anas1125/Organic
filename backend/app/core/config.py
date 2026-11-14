@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     max_image_mb: int = 4  # Vercel rejects request bodies over 4.5 MB
     image_max_side: int = 1600  # uploaded images are resized to fit and saved as WebP
     max_document_mb: int = 10
+    max_video_mb: int = 4  # short clips only; longer videos go on YouTube / Vimeo
 
     seed_admin_email: str | None = None
     seed_admin_password: str | None = None

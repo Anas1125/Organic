@@ -178,6 +178,10 @@ class Product(TimestampMixin, Base):
     gi_record_id: Mapped[int | None] = mapped_column(
         ForeignKey("gi_records.id", ondelete="SET NULL")
     )
+    # Shown first in the product gallery: a storage key (uploaded clip) or a
+    # YouTube / Vimeo / direct .mp4 / .webm link.
+    video: Mapped[str | None] = mapped_column(String(500))
+    key_points: Mapped[list[str] | None] = mapped_column(JSON)
 
     seller: Mapped[SellerProfile] = relationship(back_populates="products")
     category: Mapped[Category] = relationship()
