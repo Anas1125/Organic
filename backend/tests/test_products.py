@@ -58,3 +58,22 @@ def test_upload_rejects_fake_image(client, seller, admin, category):
     r = client.post(f"/api/v1/seller/products/{pid}/images", headers=seller,
                     files={"files": ("x.png", png, "image/png")})
     assert r.status_code == 201 and len(r.json()["images"]) == 1
+
+
+def test_district_filter_and_list(client, seller, admin, category):
+    from app.db import SessionLocal
+    from app.models import GIRecord, Product
+
+    pid = make_product(client, seller, admin, category)
+    make_product(client, seller, admin, category, name="Plain Rice")
+    with SessionLocal() as db:
+        p = db.get(Product, pid)
+        gi = GIRecord(seller_id=p.seller_id, record_type="registered_product", gi_product_name="X",
+                      geographical_region="Thanjavur district, Tamil Nadu", verification_status="verified")
+        db.add(gi)
+        db.flush()
+        p.gi_record_id = gi.id
+        db.commit()
+    assert client.get("/api/v1/products/districts").json() == [{"name": "Thanjavur", "product_count": 1}]
+    r = client.get("/api/v1/products?district=Thanjavur").json()
+    assert r["total"] == 1 and r["items"][0]["id"] == pid

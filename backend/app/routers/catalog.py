@@ -50,6 +50,7 @@ def list_products(
     bulk: bool = Query(False, description="Only products with bulk pricing"),
     min_price: float | None = Query(None, ge=0),
     max_price: float | None = Query(None, ge=0),
+    district: str | None = Query(None, max_length=60, description="GI district, e.g. Thanjavur"),
     sort: Literal["newest", "price_asc", "price_desc", "name"] = "newest",
     page: int = Query(1, ge=1),
     page_size: int = Query(12, ge=1, le=60),
@@ -84,6 +85,10 @@ def list_products(
             GIRecord.verification_status == GIVerification.VERIFIED,
             GIRecord.record_type.in_(GI_BADGE_TYPES),
         )
+    if district:
+        stmt = stmt.where(
+            Product.gi_record.has(GIRecord.geographical_region.ilike(f"{district.strip()} district%"))
+        )
     if bulk:
         stmt = stmt.where(Product.price_tiers.any())
     if min_price is not None:
@@ -107,6 +112,24 @@ def list_products(
     return s.Page(
         items=[product_out(p) for p in rows], total=total, page=page, page_size=page_size
     )
+
+
+@router.get("/products/districts")
+def districts(db: Session = Depends(get_db)):
+    """Districts that have listed GI products, with how many products each has."""
+    rows = db.execute(
+        visible_products()
+        .join(GIRecord, Product.gi_record_id == GIRecord.id)
+        .with_only_columns(GIRecord.geographical_region, func.count(Product.id))
+        .group_by(GIRecord.geographical_region)
+        .order_by(None)
+    ).all()
+    counts: dict[str, int] = {}
+    for region, n in rows:
+        name, sep, _ = region.partition(" district")
+        if sep:  # only regions written as "<name> district, <state>"
+            counts[name.strip()] = counts.get(name.strip(), 0) + n
+    return [{"name": k, "product_count": v} for k, v in sorted(counts.items())]
 
 
 @router.get("/products/suggest")

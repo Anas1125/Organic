@@ -86,6 +86,12 @@ export function useAddToCart() {
   return { addToCart, buyNow, busy: busy === 'cart', buying: busy === 'buy' }
 }
 
+/** The lowest bulk price, if it beats the list price. */
+const bestTier = (product) => {
+  const t = [...(product.price_tiers || [])].sort((a, b) => Number(a.unit_price) - Number(b.unit_price))[0]
+  return t && Number(t.unit_price) < Number(product.price) ? t : null
+}
+
 export function ProductCard({ product }) {
   const { addToCart, busy } = useAddToCart()
   const out = product.stock < product.min_order_qty
@@ -98,7 +104,7 @@ export function ProductCard({ product }) {
           {product.is_gi_verified && <GIBadge small />}
         </div>
         {product.price_tiers.length > 0 && (
-          <span className="absolute right-2.5 top-2.5 rounded-full bg-white/90 px-2 py-0.5 text-[11px] font-semibold text-brand-800 backdrop-blur">
+          <span className="absolute right-2.5 top-2.5 hidden rounded-full bg-white/90 px-2 py-0.5 text-[11px] font-semibold text-brand-800 backdrop-blur sm:inline">
             Bulk deals
           </span>
         )}
@@ -119,7 +125,12 @@ export function ProductCard({ product }) {
           <div>
             <span className="text-base font-bold text-brand-800">{money(product.price)}</span>
             <span className="text-xs text-muted"> /{product.unit}</span>
-            {product.min_order_qty > 1 && <div className="text-[11px] text-muted">Min {product.min_order_qty} {product.unit}</div>}
+            {product.min_order_qty > 1 && <div className="text-[11px] text-muted">Min order {product.min_order_qty} {product.unit}</div>}
+            {bestTier(product) && (
+              <div className="mt-1 inline-flex rounded-md bg-brand-50 px-1.5 py-0.5 text-[11px] font-semibold text-brand-700">
+                {money(bestTier(product).unit_price)} at {bestTier(product).min_qty}+
+              </div>
+            )}
           </div>
           <button
             onClick={() => addToCart(product, product.min_order_qty)}
@@ -136,9 +147,10 @@ export function ProductCard({ product }) {
   )
 }
 
-export function ProductGrid({ products }) {
+export function ProductGrid({ products, narrow }) {
+  // narrow: the grid sits beside a sidebar, so use fewer columns.
   return (
-    <div className="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
+    <div className={`grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 ${narrow ? '2xl:grid-cols-4' : 'lg:grid-cols-4'}`}>
       {products.map((p) => <ProductCard key={p.id} product={p} />)}
     </div>
   )
