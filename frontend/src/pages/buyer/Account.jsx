@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import api, { errorMessage } from '../../api/client'
-import { Button, Field, Input, Select } from '../../components/ui'
+import { Button, Field, Input, PasswordInput, Select } from '../../components/ui'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../context/ToastContext'
 
@@ -72,8 +72,8 @@ export function AccountForm() {
           <p className="text-sm text-muted">Change either one. Your current password is needed to confirm.</p>
         </div>
         <Field label="Login email"><Input type="email" required autoComplete="username" value={pw.email} onChange={(e) => setPw({ ...pw, email: e.target.value })} /></Field>
-        <Field label="New password" hint="Optional. At least 8 characters."><Input type="password" minLength={8} autoComplete="new-password" value={pw.new_password} onChange={(e) => setPw({ ...pw, new_password: e.target.value })} /></Field>
-        <Field label="Current password"><Input type="password" required autoComplete="current-password" value={pw.current_password} onChange={(e) => setPw({ ...pw, current_password: e.target.value })} /></Field>
+        <Field label="New password" hint="Optional. At least 8 characters."><PasswordInput minLength={8} autoComplete="new-password" value={pw.new_password} onChange={(e) => setPw({ ...pw, new_password: e.target.value })} /></Field>
+        <Field label="Current password"><PasswordInput required autoComplete="current-password" value={pw.current_password} onChange={(e) => setPw({ ...pw, current_password: e.target.value })} /></Field>
         <Button type="submit" variant="secondary" loading={busy === 'pw'}>Update login details</Button>
       </form>
     </div>

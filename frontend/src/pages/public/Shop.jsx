@@ -86,7 +86,7 @@ export default function Shop() {
       </div>
 
       <div className="no-scrollbar -mx-4 mb-6 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:px-0">
-        {[{ slug: '', name: 'All' }, ...(categories || [])].map((c) => (
+        {[{ slug: '', name: 'All' }, ...(categories || []).filter((c) => c.product_count > 0)].map((c) => (
           <button
             key={c.slug}
             onClick={() => set({ category: c.slug || null })}

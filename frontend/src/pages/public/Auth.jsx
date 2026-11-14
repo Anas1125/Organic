@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { errorMessage } from '../../api/client'
 import { Logo } from '../../components/Brand'
-import { Button, ErrorBox, Field, Input, Textarea } from '../../components/ui'
+import { Button, ErrorBox, Field, Input, PasswordInput, Textarea } from '../../components/ui'
 import { homeFor, useAuth } from '../../context/AuthContext'
 import { useSite } from '../../context/SiteContext'
 
@@ -13,8 +13,8 @@ function AuthShell({ title, subtitle, children }) {
       <div className="relative hidden overflow-hidden bg-brand-800 p-12 text-white lg:flex lg:flex-col">
         <Logo light />
         <div className="mt-auto max-w-md">
-          <h2 className="text-4xl font-extrabold leading-tight">Good food.<br />Better choices.</h2>
-          <p className="mt-4 text-brand-100/80">Organic and traditional food from verified farmers and makers across India.</p>
+          <h2 className="text-4xl font-extrabold leading-tight">Genuine GI products.<br />Wholesale prices.</h2>
+          <p className="mt-4 text-brand-100/80">Silk, crafts and foods with Geographical Indication tags, bought direct from the districts that make them.</p>
         </div>
         <div className="absolute -right-24 -top-24 size-80 rounded-full bg-brand-700/50" />
         <div className="absolute -bottom-32 right-20 size-72 rounded-full bg-brand-900/60" />
@@ -62,7 +62,7 @@ export function Login() {
       <form onSubmit={submit} className="space-y-4">
         <ErrorBox message={error} />
         <Field label="Email"><Input type="email" required autoComplete="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
-        <Field label="Password"><Input type="password" required autoComplete="current-password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></Field>
+        <Field label="Password"><PasswordInput required autoComplete="current-password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></Field>
         <Button type="submit" size="lg" className="w-full" loading={busy}>Log in</Button>
       </form>
       <p className="mt-6 text-center text-sm text-muted">
@@ -84,17 +84,39 @@ function RoleOption({ active, onClick, icon: Icon, title, text }) {
   )
 }
 
+function SellerSwitch() {
+  const { user, logout } = useAuth()
+  const { site } = useSite()
+  return (
+    <AuthShell title={`Sell on ${site.site_name}`} subtitle="Seller accounts are separate from shopping accounts.">
+      <div className="space-y-4 text-sm">
+        <p>
+          You're signed in as <strong className="[overflow-wrap:anywhere]">{user.email}</strong>, which is a buyer account.
+          To list products, log out and create a seller account with a different email.
+        </p>
+        <p className="text-muted">Your orders and cart stay safe in your buyer account — log back in any time.</p>
+        <Button size="lg" className="w-full" onClick={logout}><Store className="size-5" /> Log out and create a seller account</Button>
+        <Button size="lg" variant="outline" className="w-full" to="/shop">Keep shopping</Button>
+      </div>
+    </AuthShell>
+  )
+}
+
 export function Register() {
   const { register, user } = useAuth()
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const [role, setRole] = useState(params.get('role') === 'seller' ? 'seller' : 'buyer')
-  const [form, setForm] = useState({ full_name: '', email: '', phone: '', password: '', buyer_type: 'individual' })
+  const [form, setForm] = useState({ full_name: '', email: '', phone: '', password: '', buyer_type: 'wholesale' })
   const [seller, setSeller] = useState({ business_name: '', description: '', address: '', city: '', state: '', pincode: '' })
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
-  if (user) return <Navigate to={homeFor(user)} replace />
+  if (user) {
+    // "Sell on …" while signed in as a buyer: seller accounts are separate, so explain.
+    if (params.get('role') === 'seller' && user.role === 'buyer') return <SellerSwitch />
+    return <Navigate to={homeFor(user)} replace />
+  }
 
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value })
   const setS = (k) => (e) => setSeller({ ...seller, [k]: e.target.value })
@@ -117,7 +139,7 @@ export function Register() {
   }
 
   return (
-    <AuthShell title="Create your account" subtitle="Join as a buyer or start selling your produce.">
+    <AuthShell title="Create your account" subtitle="Join as a business buyer or start selling your GI products.">
       <form onSubmit={submit} className="space-y-4">
         <div className="flex gap-3">
           <RoleOption active={role === 'buyer'} onClick={() => setRole('buyer')} icon={ShoppingBasket} title="I want to buy" text="Shop from verified sellers" />
@@ -129,7 +151,7 @@ export function Register() {
           <Field label="Email"><Input type="email" required autoComplete="email" value={form.email} onChange={set('email')} /></Field>
           <Field label="Phone" hint="Optional"><Input type="tel" autoComplete="tel" pattern="[0-9+\- ]{7,20}" value={form.phone} onChange={set('phone')} /></Field>
         </div>
-        <Field label="Password" hint="At least 8 characters"><Input type="password" required minLength={8} autoComplete="new-password" value={form.password} onChange={set('password')} /></Field>
+        <Field label="Password" hint="At least 8 characters"><PasswordInput required minLength={8} autoComplete="new-password" value={form.password} onChange={set('password')} /></Field>
 
         {role === 'buyer' && (
           <div>

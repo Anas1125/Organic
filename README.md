@@ -78,7 +78,7 @@ Both deploy automatically when `main` is pushed to GitHub.
 `DATABASE_URL` (Neon; `postgres://` URLs are accepted), `JWT_SECRET`,
 `CORS_ORIGINS=https://organic-bt6.pages.dev`, `AUTO_MIGRATE=true`,
 `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`, `PUBLIC_MEDIA_URL=https://<backend>.vercel.app/media`,
-optional `SEED_DEMO=true` (demo sellers and 15 products with photos) and `SEED_DEMO_PASSWORD`.
+optional `SEED_DEMO=true` (sample B2B catalog of 69 Tamil Nadu GI products from 38 sample sellers — see `backend/app/gi_catalog.py`) and `SEED_DEMO_PASSWORD`.
 With `AUTO_MIGRATE=true` the app runs `alembic upgrade head` and creates the categories and first admin when it starts.
 
 **Frontend — Cloudflare Pages** (root `frontend`, build `npm run build`, output `dist`).

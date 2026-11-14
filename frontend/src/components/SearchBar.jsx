@@ -115,7 +115,7 @@ export default function SearchBar({ className = '', autoFocus }) {
           onFocus={() => setOpen(true)}
           onKeyDown={onKeyDown}
           autoFocus={autoFocus}
-          placeholder="Search rice, millets, karuvadu, spices…"
+          placeholder="Search silk sarees, turmeric, Thanjavur crafts…"
           className="h-11 w-full rounded-full border border-transparent bg-canvas pl-11 pr-10 text-sm outline-none transition focus:border-brand-300 focus:bg-white focus:ring-4 focus:ring-brand-100"
           aria-label="Search products"
           role="combobox"

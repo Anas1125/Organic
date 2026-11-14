@@ -7,32 +7,32 @@ import useFetch from '../../hooks/useFetch'
 import { useSite } from '../../context/SiteContext'
 
 function Hero() {
-  const bubbles = ['rice-grains', 'vegetables', 'dried-fish', 'spices', 'fruits', 'millets']
+  const bubbles = ['sarees-handlooms', 'spices', 'handicrafts', 'fruits', 'home-kitchen', 'rice-grains']
   return (
     <section className="container-page pt-6 sm:pt-10">
       <div className="grid items-center gap-8 lg:grid-cols-[1.1fr_1fr]">
         <div>
-          <div className="mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-muted">Fresh / Organic / Traditional</div>
+          <div className="mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-muted">GI-tagged / Wholesale / Tamil Nadu</div>
           <h1 className="text-[40px] font-extrabold leading-[1.05] text-brand-900 sm:text-6xl">
-            Good Food<br />Better <span className="text-brand-600">Choices</span>
+            Authentic GI<br />Products, <span className="text-brand-600">Wholesale</span>
           </h1>
           <div className="mt-4 h-1.5 w-20 rounded-full bg-brand-800" />
           <p className="mt-5 max-w-md text-base leading-relaxed text-muted sm:text-lg">
-            Organic rice, millets, sun-dried karuvadu, spices and homemade foods — straight from the farmers and families who make them.
+            Kanchipuram silk, Thanjavur crafts, Erode turmeric, Palani panchamirtham and more — bulk-priced and sourced from the districts that hold their GI tags.
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
-            <Button to="/shop" size="lg">Shop fresh <ArrowRight className="size-5" /></Button>
+            <Button to="/shop" size="lg">Shop wholesale <ArrowRight className="size-5" /></Button>
             <Button to="/register?role=seller" size="lg" variant="outline">Sell with us</Button>
           </div>
-          <p className="mt-8 text-lg italic text-brand-700/80">Real food. Real impact.</p>
+          <p className="mt-8 text-lg italic text-brand-700/80">Genuine origin. Fair trade.</p>
         </div>
 
         <div>
           <div className="flex flex-col gap-6 overflow-hidden rounded-[28px] bg-brand-100 p-6 sm:flex-row sm:items-center sm:p-8">
             <div className="flex-1">
-              <span className="inline-block rounded-full bg-white px-3 py-1 text-xs font-semibold text-brand-800">100% Verified sellers</span>
-              <h2 className="mt-3 text-2xl font-bold leading-tight text-brand-900 sm:text-3xl">Farm fresh, the traditional way</h2>
-              <p className="mt-2 text-sm text-brand-800/70">Straight from local farms and coastal villages to your home.</p>
+              <span className="inline-block rounded-full bg-white px-3 py-1 text-xs font-semibold text-brand-800">Every GI tag checked</span>
+              <h2 className="mt-3 text-2xl font-bold leading-tight text-brand-900 sm:text-3xl">Straight from the district of origin</h2>
+              <p className="mt-2 text-sm text-brand-800/70">Food, handlooms and crafts from across Tamil Nadu, priced for retailers, hotels and exporters.</p>
               <Button to="/shop" size="sm" className="mt-5">Shop now <ArrowRight className="size-4" /></Button>
             </div>
             <div className="grid shrink-0 grid-cols-6 gap-2 sm:w-48 sm:grid-cols-3 sm:gap-3 sm:pb-3">
@@ -54,7 +54,8 @@ function Hero() {
 }
 
 function Categories() {
-  const { data } = useFetch('/categories')
+  const { data: all } = useFetch('/categories')
+  const data = all?.filter((c) => c.product_count > 0)
   if (!data?.length) return null
   return (
     <section className="container-page mt-12">
@@ -62,7 +63,7 @@ function Categories() {
         <h2 className="text-xl font-bold sm:text-2xl">Shop by category</h2>
         <Link to="/shop" className="flex items-center gap-1 text-sm font-semibold text-brand-700">See all <ArrowRight className="size-4" /></Link>
       </div>
-      <div className="no-scrollbar -mx-4 flex gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-5 sm:px-0 lg:grid-cols-9">
+      <div className="no-scrollbar -mx-4 flex gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-5 sm:px-0 lg:grid-cols-10">
         {data.map((c) => (
           <Link key={c.id} to={`/shop?category=${c.slug}`} className="group flex w-20 shrink-0 flex-col items-center gap-2 text-center sm:w-auto">
             <span className="grid size-16 place-items-center rounded-full transition group-hover:scale-105 sm:size-[72px]" style={{ background: categoryLook(c.slug).bg }}>
@@ -82,7 +83,7 @@ function Popular() {
   return (
     <section className="container-page mt-12">
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-xl font-bold sm:text-2xl">Fresh on {site.site_name}</h2>
+        <h2 className="text-xl font-bold sm:text-2xl">New on {site.site_name}</h2>
         <Link to="/shop" className="flex items-center gap-1 text-sm font-semibold text-brand-700">See all <ArrowRight className="size-4" /></Link>
       </div>
       {error ? <ErrorBox message={error} onRetry={reload} />

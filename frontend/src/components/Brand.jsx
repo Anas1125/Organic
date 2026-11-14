@@ -1,4 +1,4 @@
-import { Apple, Carrot, CookingPot, Droplet, Fish, Flame, Leaf, MapPin, Sprout, Wheat } from 'lucide-react'
+import { Apple, Carrot, CookingPot, Droplet, Fish, Flame, Flower2, Lamp, Leaf, MapPin, Palette, Shirt, Sprout, Wheat } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useSite } from '../context/SiteContext'
 
@@ -41,6 +41,10 @@ const CATEGORY_LOOK = {
   'oils-ghee': { icon: Droplet, bg: '#fbf1cf', fg: '#a07a0c' },
   'homemade-foods': { icon: CookingPot, bg: '#f4e4ee', fg: '#9b3d76' },
   'regional-specialties': { icon: MapPin, bg: '#e7e8f7', fg: '#4b4fa8' },
+  'sarees-handlooms': { icon: Shirt, bg: '#fbe3e1', fg: '#a8322b' },
+  handicrafts: { icon: Palette, bg: '#f3e7d6', fg: '#8a5a1f' },
+  'home-kitchen': { icon: Lamp, bg: '#e3eef0', fg: '#2f6670' },
+  flowers: { icon: Flower2, bg: '#fbe6f1', fg: '#b03c7a' },
 }
 const DEFAULT_LOOK = { icon: Leaf, bg: '#e4efe2', fg: '#2c5a3e' }
 

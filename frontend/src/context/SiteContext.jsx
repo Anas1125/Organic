@@ -20,7 +20,7 @@ export function SiteProvider({ children }) {
   }, [])
 
   useEffect(() => {
-    document.title = `${site.site_name} — Organic & Traditional Food Marketplace`
+    document.title = `${site.site_name} — GI-Tagged Products, Wholesale`
   }, [site.site_name])
 
   return <SiteContext.Provider value={{ site, setSite, loaded }}>{children}</SiteContext.Provider>

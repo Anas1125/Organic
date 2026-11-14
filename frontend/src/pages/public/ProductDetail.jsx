@@ -123,7 +123,7 @@ export default function ProductDetail() {
                   <div>
                     <div className="font-semibold">{p.gi.gi_product_name}</div>
                     <div className="text-muted">{GI_TYPES[p.gi.record_type]} · {p.gi.geographical_region}</div>
-                    {p.gi.registration_number && <div className="text-muted">Reg. no. {p.gi.registration_number}</div>}
+                    {p.gi.registration_number && <div className="text-muted">{/^GI /.test(p.gi.registration_number) ? '' : 'Reg. no. '}{p.gi.registration_number}</div>}
                   </div>
                 </div>
               )}

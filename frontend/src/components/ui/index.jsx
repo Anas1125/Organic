@@ -1,5 +1,5 @@
-import { Loader2, X } from 'lucide-react'
-import { useEffect } from 'react'
+import { Eye, EyeOff, Loader2, X } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { titleCase } from '../../lib/format'
 
@@ -41,6 +41,25 @@ export function Field({ label, hint, error, children, className = '' }) {
 }
 
 export const Input = (props) => <input className="input" {...props} />
+
+/** Password field with an eye button to show or hide what was typed. */
+export function PasswordInput(props) {
+  const [show, setShow] = useState(false)
+  return (
+    <div className="relative">
+      <input className="input pr-11" {...props} type={show ? 'text' : 'password'} />
+      <button
+        type="button"
+        onClick={() => setShow(!show)}
+        className="absolute inset-y-0 right-0 grid w-11 place-items-center rounded-r-xl text-muted hover:text-ink"
+        aria-label={show ? 'Hide password' : 'Show password'}
+        aria-pressed={show}
+      >
+        {show ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+      </button>
+    </div>
+  )
+}
 export const Textarea = (props) => <textarea className="input min-h-24" {...props} />
 export const Select = ({ children, ...props }) => <select className="input pr-8" {...props}>{children}</select>
 

@@ -1,7 +1,7 @@
 import { Crown, ShieldCheck, Trash2, UserPlus } from 'lucide-react'
 import { useState } from 'react'
 import api, { errorMessage } from '../../api/client'
-import { Button, EmptyState, ErrorBox, Field, Input, PageHeader, Spinner } from '../../components/ui'
+import { Button, EmptyState, ErrorBox, Field, Input, PasswordInput, PageHeader, Spinner } from '../../components/ui'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../context/ToastContext'
 import useFetch from '../../hooks/useFetch'
@@ -91,7 +91,7 @@ export function AdminAdmins() {
           <Field label="Full name"><Input required minLength={2} maxLength={120} value={form.full_name} onChange={set('full_name')} /></Field>
           <Field label="Email" hint="They log in with this."><Input type="email" required value={form.email} onChange={set('email')} autoComplete="off" /></Field>
           <Field label="Password" hint="At least 8 characters. Share it with them privately; they can change it under My account.">
-            <Input type="password" required minLength={8} maxLength={128} value={form.password} onChange={set('password')} autoComplete="new-password" />
+            <PasswordInput required minLength={8} maxLength={128} value={form.password} onChange={set('password')} autoComplete="new-password" />
           </Field>
           <Button type="submit" loading={busy} className="w-full">Add admin</Button>
         </form>
