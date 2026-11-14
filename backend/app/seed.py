@@ -197,40 +197,74 @@ def retire_demo_accounts(db, emails):
 SEED_IMAGES = Path(__file__).parent / "seed_images"
 
 
-def attach_demo_images(db):
-    """Fill in sample products' photos, video and key points where they are missing.
-    Runs on every cold start, so it uses one query and only writes what is missing."""
-    from sqlalchemy.orm import selectinload
+def _photo_plan():
+    """Sample product name -> photo files in order, plus a fingerprint of the whole set."""
+    import hashlib
 
-    from app.gi_catalog import KEY_POINTS, SELLERS, VIDEOS
-    from app.services.storage import get_storage
+    from app.gi_catalog import SELLERS
 
-    photos: dict[str, list[Path]] = {}
+    plan: dict[str, list[tuple[str, Path]]] = {}
+    overall = hashlib.md5()
     for sd in SELLERS:
         for (name, *_rest, stem) in sd["products"]:
             files = [SEED_IMAGES / f"{stem}.webp"] + [SEED_IMAGES / f"{stem}-{n}.webp" for n in range(2, 7)]
-            photos[name] = [f for f in files if f.exists()]
+            plan[name] = []
+            for f in files:
+                if f.exists():
+                    digest = hashlib.md5(f.read_bytes()).hexdigest()
+                    plan[name].append((digest, f))
+                    overall.update(f"{name}:{digest};".encode())
+    return plan, overall.hexdigest()
+
+
+def attach_demo_images(db):
+    """Keep sample products' photos, video and key points in line with app/seed_images.
+
+    Photos are re-synced only when the sample photo set changes (tracked in app_meta), so
+    a photo an admin removes doesn't come back on the next start. Products whose photos
+    were uploaded by a seller or admin (stored under products/<id>/) are never touched."""
+    from sqlalchemy.orm import selectinload
+
+    from app.gi_catalog import KEY_POINTS, SELLERS, VIDEOS
+    from app.models import AppMeta
+    from app.services.storage import get_storage
+
+    plan, fingerprint = _photo_plan()
+    marker = db.get(AppMeta, "sample_photos")
+    resync = marker is None or marker.value != fingerprint
 
     storage = get_storage()
-    sample_emails = [sd["email"] for sd in SELLERS]
     products = db.scalars(
         select(Product)
         .join(SellerProfile, Product.seller_id == SellerProfile.id)
         .join(User, SellerProfile.user_id == User.id)
-        .where(User.email.in_(sample_emails))
+        .where(User.email.in_([sd["email"] for sd in SELLERS]))
         .options(selectinload(Product.images))
     ).all()
     for product in products:
-        files = photos.get(product.name, [])
-        # Only add photos the product doesn't have yet (by position), never remove any.
-        for order, file in enumerate(files[len(product.images):], start=len(product.images)):
-            key = f"products/{uuid.uuid4().hex}.webp"
-            storage.save(key, file.read_bytes(), "image/webp")
-            db.add(ProductImage(product_id=product.id, path=key, sort_order=order))
+        wanted = plan.get(product.name, [])
+        uploaded_by_people = any(img.path.count("/") > 1 for img in product.images)
+        if resync and not uploaded_by_people:
+            want_keys = [f"products/{digest}.webp" for digest, _ in wanted]
+            if [img.path for img in product.images] != want_keys:
+                for img in list(product.images):
+                    if img.path not in want_keys:
+                        storage.delete(img.path)
+                    product.images.remove(img)
+                db.flush()
+                for order, (digest, file) in enumerate(wanted):
+                    key = f"products/{digest}.webp"
+                    storage.save(key, file.read_bytes(), "image/webp")
+                    product.images.append(ProductImage(path=key, sort_order=order))
         if product.key_points is None and product.name in KEY_POINTS:
             product.key_points = KEY_POINTS[product.name]
         if product.video is None and product.name in VIDEOS:
             product.video = VIDEOS[product.name]
+    if resync:
+        if marker:
+            marker.value = fingerprint
+        else:
+            db.add(AppMeta(key="sample_photos", value=fingerprint))
     db.commit()
 
 

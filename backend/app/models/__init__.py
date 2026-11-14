@@ -323,3 +323,12 @@ class StoredFile(Base):
     size: Mapped[int] = mapped_column(Integer)
     data: Mapped[bytes] = mapped_column(LargeBinary, deferred=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class AppMeta(Base):
+    """Small key/value store for app bookkeeping (e.g. which sample photo set is loaded)."""
+
+    __tablename__ = "app_meta"
+
+    key: Mapped[str] = mapped_column(String(60), primary_key=True)
+    value: Mapped[str] = mapped_column(String(200))

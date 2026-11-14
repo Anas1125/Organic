@@ -7,7 +7,6 @@ Licences: CC0 / public domain need no credit; CC BY and CC BY-SA require the cre
 |---|---|---|---|
 | kovilpatti-kadalai-mittai.webp | [Kadalai Mittai.JPG](https://commons.wikimedia.org/wiki/File:Kadalai_Mittai.JPG) | Pranavathiyani G | CC BY-SA 4.0 |
 | arani-silk.webp | [Hand loom in Devikapuram.jpg](https://commons.wikimedia.org/wiki/File:Hand_loom_in_Devikapuram.jpg) | Balu 606902 | CC BY-SA 3.0 |
-| arumbavur-wood.webp | [Shiva gana (an attendant of Shiva), Madurai, Tamil Nadu, India, 17th century, wood, HAA I.JPG](https://commons.wikimedia.org/wiki/File:Shiva_gana_(an_attendant_of_Shiva),_Madurai,_Tamil_Nadu,_India,_17th_century,_wood,_HAA_I.JPG) | Hiart | CC0 |
 | authoor-vetrilai.webp | [Betel leaves for selling in the market 01.jpg](https://commons.wikimedia.org/wiki/File:Betel_leaves_for_selling_in_the_market_01.jpg) | Suyash Dwivedi | CC BY-SA 4.0 |
 | bhavani-jamakkalam.webp | [Jamakalam.jpg](https://commons.wikimedia.org/wiki/File:Jamakalam.jpg) | Booradleyp1 | CC BY-SA 4.0 |
 | chettikulam-onion.webp | [Shallot (Sambar Onion) (1).JPG](https://commons.wikimedia.org/wiki/File:Shallot_(Sambar_Onion)_(1).JPG) | Ask27 | CC BY-SA 3.0 |
@@ -56,8 +55,6 @@ Licences: CC0 / public domain need no credit; CC BY and CC BY-SA require the cre
 | vellore-brinjal.webp | [Closeup of unplucked Vellore Spiny Brinjal in a field from Elavambadi village.jpg](https://commons.wikimedia.org/wiki/File:Closeup_of_unplucked_Vellore_Spiny_Brinjal_in_a_field_from_Elavambadi_village.jpg) | I P.Krishnan | CC0 |
 | arani-silk-2.webp | [Handloom silk saree weaving in Arani,Tamilnadu.png](https://commons.wikimedia.org/wiki/File:Handloom_silk_saree_weaving_in_Arani,Tamilnadu.png) | Yuvaraj7128 | CC BY-SA 4.0 |
 | arani-silk-3.webp | [Silk saree making - panoramio.jpg](https://commons.wikimedia.org/wiki/File:Silk_saree_making_-_panoramio.jpg) | cricmohan | CC BY 3.0 |
-| arumbavur-wood-2.webp | [Set of four pillars, India, Tanjore, Tamil Nadu, 17th century, wood, HAA.jpg](https://commons.wikimedia.org/wiki/File:Set_of_four_pillars,_India,_Tanjore,_Tamil_Nadu,_17th_century,_wood,_HAA.jpg) | Hiart | CC0 |
-| arumbavur-wood-3.webp | [Shiva gana (an attendant of Shiva), Madurai, Tamil Nadu, India, 17th century, wood, HAA II.JPG](https://commons.wikimedia.org/wiki/File:Shiva_gana_(an_attendant_of_Shiva),_Madurai,_Tamil_Nadu,_India,_17th_century,_wood,_HAA_II.JPG) | Hiart | CC0 |
 | authoor-vetrilai-2.webp | [Betel leaf.JPG](https://commons.wikimedia.org/wiki/File:Betel_leaf.JPG) | Aathavan jaffna | CC BY-SA 3.0 |
 | bhavani-jamakkalam-2.webp | [Erode rugs.jpg](https://commons.wikimedia.org/wiki/File:Erode_rugs.jpg) | Frank Hebbert | CC BY 2.0 |
 | chettikulam-onion-2.webp | [Shallots-Whole.jpg](https://commons.wikimedia.org/wiki/File:Shallots-Whole.jpg) | Evan-Amos | CC BY-SA 3.0 |
@@ -98,6 +95,34 @@ Licences: CC0 / public domain need no credit; CC BY and CC BY-SA require the cre
 | thooyamalli-rice-2.webp | [Uncooked ST25 rice on bamboo surface.jpg](https://commons.wikimedia.org/wiki/File:Uncooked_ST25_rice_on_bamboo_surface.jpg) | VinhNguyen.1257 | CC BY-SA 4.0 |
 | udangudi-karupatti-2.webp | [Sa-indian-gud.jpg](https://commons.wikimedia.org/wiki/File:Sa-indian-gud.jpg) | Sanjay ach | CC BY-SA 3.0 |
 | udangudi-karupatti-3.webp | [Slabs of jaggery.jpg](https://commons.wikimedia.org/wiki/File:Slabs_of_jaggery.jpg) | Rohini | CC BY-SA 3.0 |
+| ambasamudram-toys-2.webp | [The hand-painted colorful wooden dolls from Sawantwadi.jpg](https://commons.wikimedia.org/wiki/File:The_hand-painted_colorful_wooden_dolls_from_Sawantwadi.jpg) | Art Projects MKCL KF | CC BY-SA 4.0 |
+| ambasamudram-toys.webp | [Colorful wooden toys workshop in Sawantwadi.jpg](https://commons.wikimedia.org/wiki/File:Colorful_wooden_toys_workshop_in_Sawantwadi.jpg) | Art Projects MKCL KF | CC BY-SA 4.0 |
+| arumbavur-wood-2.webp | [Carvings on wooden pillar at Hang Jebat Mosque.jpg](https://commons.wikimedia.org/wiki/File:Carvings_on_wooden_pillar_at_Hang_Jebat_Mosque.jpg) | M. Adrian Jurhami | CC BY 4.0 |
+| arumbavur-wood.webp | [Nepalese wooden pillar cavings.jpg](https://commons.wikimedia.org/wiki/File:Nepalese_wooden_pillar_cavings.jpg) | Wittylama | CC BY-SA 4.0 |
+| chedibutta-saree-2.webp | [Chanderi Craft Village – Traditional Weaving and Handicrafts in Madhya Pradesh 05.jpg](https://commons.wikimedia.org/wiki/File:Chanderi_Craft_Village_%E2%80%93_Traditional_Weaving_and_Handicrafts_in_Madhya_Pradesh_05.jpg) | Shoot stufz | CC BY-SA 4.0 |
+| chedibutta-saree.webp | [A young artist weaving creativity into every thread, crafting a beautiful handicraft saree with precision and passion.jpg](https://commons.wikimedia.org/wiki/File:A_young_artist_weaving_creativity_into_every_thread,_crafting_a_beautiful_handicraft_saree_with_precision_and_passion.jpg) | Manishontop02 | CC BY-SA 4.0 |
+| dindigul-lock-2.webp | [... antique lock with set of keys (exhibit) at Mehrangarh (31746266328).jpg](https://commons.wikimedia.org/wiki/File:..._antique_lock_with_set_of_keys_(exhibit)_at_Mehrangarh_(31746266328).jpg) | Dinesh Valke from Thane, India | CC BY-SA 2.0 |
+| dindigul-lock.webp | [Antique Padlocks - Treasures in the Wall Museum - Akko (Acre) - Israel.jpg](https://commons.wikimedia.org/wiki/File:Antique_Padlocks_-_Treasures_in_the_Wall_Museum_-_Akko_(Acre)_-_Israel.jpg) | Adam Jones from Kelowna, BC, Canada | CC BY-SA 2.0 |
+| jaderi-namakatti.webp | [Thenkalai Sri Vaishnava urdhva pundram.jpg](https://commons.wikimedia.org/wiki/File:Thenkalai_Sri_Vaishnava_urdhva_pundram.jpg) | Debanjon | CC BY-SA 4.0 |
+| kallakurichi-wood.webp | [Wood carving detail2 - Vishnu Mohini.jpg](https://commons.wikimedia.org/wiki/File:Wood_carving_detail2_-_Vishnu_Mohini.jpg) | Balaji Srinivasan | CC BY-SA 2.0 |
+| kovai-kora-2.webp | [Celebrating the artistry and tradition of handmade elegance each stitch in a handicraft saree tells a story of skill, heritage, and timeless beauty.jpg](https://commons.wikimedia.org/wiki/File:Celebrating_the_artistry_and_tradition_of_handmade_elegance_each_stitch_in_a_handicraft_saree_tells_a_story_of_skill,_heritage,_and_timeless_beauty.jpg) | Manishontop02 | CC BY-SA 4.0 |
+| kovai-kora.webp | [Bengal saris on display.jpg](https://commons.wikimedia.org/wiki/File:Bengal_saris_on_display.jpg) | Giridhar Appaji Nag Y | CC BY 2.0 |
+| mahabalipuram-sculpture-2.webp | [Men carving stone idols or murti. Mahabalipuram. 2010.jpg](https://commons.wikimedia.org/wiki/File:Men_carving_stone_idols_or_murti._Mahabalipuram._2010.jpg) | John Hill | CC BY-SA 4.0 |
+| mahabalipuram-sculpture.webp | [Mamallapuram Art Sculpture Shops.JPG](https://commons.wikimedia.org/wiki/File:Mamallapuram_Art_Sculpture_Shops.JPG) | KARTY JazZ | CC BY-SA 4.0 |
+| myladi-stone-2.webp | [WLA haa Vishnu Tamil Nadu Pallava dynasty.jpg](https://commons.wikimedia.org/wiki/File:WLA_haa_Vishnu_Tamil_Nadu_Pallava_dynasty.jpg) | Hiart | CC0 |
+| myladi-stone.webp | [Stone Nataraja Sculpture, Kailasanathar Temple,Tharamangalam, Salem, Tamil Nadu.jpg](https://commons.wikimedia.org/wiki/File:Stone_Nataraja_Sculpture,_Kailasanathar_Temple,Tharamangalam,_Salem,_Tamil_Nadu.jpg) | SpeakingArch | CC BY-SA 4.0 |
+| nagercoil-temple-jewellery-2.webp | [Temple Jewellery Modern Designs.jpg](https://commons.wikimedia.org/wiki/File:Temple_Jewellery_Modern_Designs.jpg) | Ambika8585 | CC BY-SA 4.0 |
+| nagercoil-temple-jewellery.webp | [Temple jewellery Bangle.png](https://commons.wikimedia.org/wiki/File:Temple_jewellery_Bangle.png) | Sivakumarindia | CC0 |
+| namakkal-soapstone.webp | [Soapstone pot.jpg](https://commons.wikimedia.org/wiki/File:Soapstone_pot.jpg) | Lysippos | CC BY-SA 3.0 |
+| sirumalai-banana-2.webp | [India - Koyambedu Market - Market 08 (3986141067).jpg](https://commons.wikimedia.org/wiki/File:India_-_Koyambedu_Market_-_Market_08_(3986141067).jpg) | McKay Savage from London, UK | CC BY 2.0 |
+| sirumalai-banana.webp | [Bunch of Bananas at Poorna market vizag.jpg](https://commons.wikimedia.org/wiki/File:Bunch_of_Bananas_at_Poorna_market_vizag.jpg) | రవిచంద్ర | CC BY-SA 4.0 |
+| thaikkal-rattan-2.webp | [RATTAN CHAIR WITH PAPERCRETE POT.jpg](https://commons.wikimedia.org/wiki/File:RATTAN_CHAIR_WITH_PAPERCRETE_POT.jpg) | Atsmgysy2254 | CC BY-SA 4.0 |
+| thaikkal-rattan.webp | [Rattan Chair.jpg](https://commons.wikimedia.org/wiki/File:Rattan_Chair.jpg) | Sidheeq | CC BY-SA 4.0 |
+| thanjavur-veena-2.webp | [Yali, from the neck of a Veena Saraswati (Musées de Dahlem Berlin) (3042092768).jpg](https://commons.wikimedia.org/wiki/File:Yali,_from_the_neck_of_a_Veena_Saraswati_(Mus%C3%A9es_de_Dahlem_Berlin)_(3042092768).jpg) | dalbera from Paris, France | CC BY 2.0 |
+| thanjavur-veena.webp | [Saraswati veena (Indian long-necked lute).png](https://commons.wikimedia.org/wiki/File:Saraswati_veena_(Indian_long-necked_lute).png) | Original: unknownPhotograph: Katharina Common | CC BY-SA 4.0 |
+| virupakshi-banana-2.webp | [Bananas - Beacon Hill, Boston, MA.jpg](https://commons.wikimedia.org/wiki/File:Bananas_-_Beacon_Hill,_Boston,_MA.jpg) | Daderot | CC0 |
+| virupakshi-banana.webp | [Banana & Sea Cox's Bazar Bangladesh.jpg](https://commons.wikimedia.org/wiki/File:Banana_%26_Sea_Cox%27s_Bazar_Bangladesh.jpg) | Bdruhul | CC BY-SA 4.0 |
+| woraiyur-saree.webp | [A lady doll.jpg](https://commons.wikimedia.org/wiki/File:A_lady_doll.jpg) | Parvathisri | CC BY-SA 3.0 |
 
 ## Videos (streamed from Wikimedia Commons)
 
