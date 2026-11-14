@@ -123,6 +123,15 @@ Licences: CC0 / public domain need no credit; CC BY and CC BY-SA require the cre
 | virupakshi-banana-2.webp | [Bananas - Beacon Hill, Boston, MA.jpg](https://commons.wikimedia.org/wiki/File:Bananas_-_Beacon_Hill,_Boston,_MA.jpg) | Daderot | CC0 |
 | virupakshi-banana.webp | [Banana & Sea Cox's Bazar Bangladesh.jpg](https://commons.wikimedia.org/wiki/File:Banana_%26_Sea_Cox%27s_Bazar_Bangladesh.jpg) | Bdruhul | CC BY-SA 4.0 |
 | woraiyur-saree.webp | [A lady doll.jpg](https://commons.wikimedia.org/wiki/File:A_lady_doll.jpg) | Parvathisri | CC BY-SA 3.0 |
+| madurai-sungudi-2.webp | [Crape silk fabric Banarasi work bandhani saree.jpg](https://commons.wikimedia.org/wiki/File:Crape_silk_fabric_Banarasi_work_bandhani_saree.jpg) | Kutch.artesania | CC BY-SA 4.0 |
+| madurai-sungudi.webp | [Bandhani print open.JPG](https://commons.wikimedia.org/wiki/File:Bandhani_print_open.JPG) | Mandayamr | Public domain |
+| ooty-varkey.webp | [Lemon puff.jpg](https://commons.wikimedia.org/wiki/File:Lemon_puff.jpg) | ProjectManhattan | CC0 |
+| srivilliputtur-palkova-2.webp | [Milk Peda.JPG](https://commons.wikimedia.org/wiki/File:Milk_Peda.JPG) | Jaya.bhardwaj63 | CC BY-SA 4.0 |
+| srivilliputtur-palkova.webp | [Peda (bright).JPG](https://commons.wikimedia.org/wiki/File:Peda_(bright).JPG) | Vashisthapathak2015 (original image) ; reprocessed by Off-shell | CC BY-SA 4.0 |
+| thanjavur-netti-2.webp | [Details of frames made out of Sholapith.jpg](https://commons.wikimedia.org/wiki/File:Details_of_frames_made_out_of_Sholapith.jpg) | Prakriti Panda | CC BY-SA 4.0 |
+| thanjavur-netti.webp | [Craft sholapith.jpg](https://commons.wikimedia.org/wiki/File:Craft_sholapith.jpg) | Iamjfcal | CC BY-SA 4.0 |
+| thovalai-garland-2.webp | [Marigold Flowers as garland.jpg](https://commons.wikimedia.org/wiki/File:Marigold_Flowers_as_garland.jpg) | SnapMeUp | CC BY 4.0 |
+| thovalai-garland.webp | [Marigold garlands.jpg](https://commons.wikimedia.org/wiki/File:Marigold_garlands.jpg) | পাপৰি বৰা | CC BY-SA 4.0 |
 
 ## Videos (streamed from Wikimedia Commons)
 
