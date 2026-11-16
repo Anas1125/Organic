@@ -151,6 +151,7 @@ class CategoryOut(ORM):
     description: str | None
     is_active: bool
     product_count: int = 0
+    image: str | None = None  # a photo of one of its products, for category tiles
 
 
 # ---------- Products ----------
@@ -459,6 +460,11 @@ class OrderOut(ORM):
     refund_id: str | None = None
     refunded_at: datetime | None = None
     refund_error: str | None = None
+    courier: str | None = None
+    tracking_number: str | None = None
+    shipped_at: datetime | None = None
+    delivered_at: datetime | None = None
+    auto_delivery_on: datetime | None = None  # when a shipped order will be marked delivered
     subtotal: Decimal
     total: Decimal
     shipping_name: str
@@ -479,6 +485,21 @@ class OrderOut(ORM):
 class OrderStatusIn(BaseModel):
     status: str
     payment_status: Literal["pending", "paid", "refunded"] | None = None  # cash on delivery only
+    courier: str | None = Field(default=None, max_length=60)
+    tracking_number: str | None = Field(default=None, max_length=80)
+
+
+class BulkStatusIn(BaseModel):
+    order_ids: list[int] = Field(min_length=1, max_length=500)
+    status: str
+    courier: str | None = Field(default=None, max_length=60)
+    # Optional tracking number per order id (as a string key, from JSON).
+    tracking: dict[str, str] = Field(default_factory=dict)
+
+
+class BulkStatusOut(BaseModel):
+    updated: list["OrderOut"]
+    failed: list[dict]
 
 
 # ---------- Contact ----------

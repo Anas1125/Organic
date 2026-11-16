@@ -74,6 +74,6 @@ def test_district_filter_and_list(client, seller, admin, category):
         db.flush()
         p.gi_record_id = gi.id
         db.commit()
-    assert client.get("/api/v1/products/districts").json() == [{"name": "Thanjavur", "product_count": 1}]
+    assert client.get("/api/v1/products/districts").json() == [{"name": "Thanjavur", "product_count": 1, "image": None}]
     r = client.get("/api/v1/products?district=Thanjavur").json()
     assert r["total"] == 1 and r["items"][0]["id"] == pid

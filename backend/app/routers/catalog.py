@@ -14,6 +14,7 @@ from app.models import (
     GIRecord,
     OrganicCertification,
     Product,
+    ProductImage,
     SellerProfile,
 )
 from app.models.enums import GI_BADGE_TYPES, GIVerification, ReviewStatus
@@ -32,11 +33,38 @@ def list_categories(db: Session = Depends(get_db)):
             .group_by(Product.category_id)
         ).all()
     )
+    covers = _cover_photos(db, Product.category_id)
     cats = db.scalars(select(Category).where(Category.is_active.is_(True)).order_by(Category.name))
     return [
-        s.CategoryOut.model_validate(c).model_copy(update={"product_count": counts.get(c.id, 0)})
+        s.CategoryOut.model_validate(c).model_copy(
+            update={"product_count": counts.get(c.id, 0), "image": covers.get(c.id)}
+        )
         for c in cats
     ]
+
+
+def _cover_photos(db: Session, group_col, *joins) -> dict:
+    """One cover photo per group (category, district …): the main photo of the visible
+    product with the most photos (best-presented listing), newest first on a tie."""
+    photos = (
+        select(ProductImage.product_id, func.count(ProductImage.id).label("n"))
+        .group_by(ProductImage.product_id)
+        .subquery()
+    )
+    stmt = visible_products()
+    for j in joins:
+        stmt = stmt.join(*j)
+    rows = db.execute(
+        stmt.join(ProductImage, ProductImage.product_id == Product.id)
+        .join(photos, photos.c.product_id == Product.id)
+        .where(ProductImage.sort_order == 0)
+        .with_only_columns(group_col, ProductImage.path)
+        .order_by(photos.c.n.desc(), Product.created_at.desc())
+    ).all()
+    covers: dict = {}
+    for key, path in rows:
+        covers.setdefault(key, media_url(path))
+    return covers
 
 
 @router.get("/products", response_model=s.Page[s.ProductOut])
@@ -129,7 +157,10 @@ def districts(db: Session = Depends(get_db)):
         name, sep, _ = region.partition(" district")
         if sep:  # only regions written as "<name> district, <state>"
             counts[name.strip()] = counts.get(name.strip(), 0) + n
-    return [{"name": k, "product_count": v} for k, v in sorted(counts.items())]
+    images: dict[str, str] = {}
+    for region, url in _cover_photos(db, GIRecord.geographical_region, (GIRecord, Product.gi_record_id == GIRecord.id)).items():
+        images.setdefault(region.partition(" district")[0].strip(), url)
+    return [{"name": k, "product_count": v, "image": images.get(k)} for k, v in sorted(counts.items())]
 
 
 @router.get("/products/suggest")

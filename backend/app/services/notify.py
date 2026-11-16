@@ -48,17 +48,19 @@ def _seller(o: Order) -> None:
     ship = f"{esc(o.shipping_name)}, {esc(o.shipping_city)}, {esc(o.shipping_state)} {esc(o.shipping_pincode)}"
     send_email(
         user.email, f"New order {o.order_number}", "You have a new order",
-        [f"Hi {esc(o.seller.business_name)},", "A buyer has placed an order with you. Please confirm it.",
+        [f"Hi {esc(o.seller.business_name)},", ("A buyer has placed an order with you. It's confirmed — please pack and ship it." if o.status == OrderStatus.CONFIRMED else "A buyer has placed an order with you. Please confirm it."),
          *_summary(o), f"Ship to: {ship}"],
         ("Open the order", _site("/seller/orders")),
     )
 
 
 def order_placed(orders: list[Order]) -> None:
-    """Cash on delivery: the order is placed straight away."""
+    """Cash on delivery: the order is placed (and confirmed) straight away."""
     for o in orders:
-        _buyer(o, f"Order placed — {o.order_number}", "Thanks for your order!",
-               ["We've sent your order to the seller. You'll get an email when it's confirmed."])
+        lead = ("Your order is confirmed and the seller is getting it ready. We'll email you when it ships."
+                if o.status == OrderStatus.CONFIRMED
+                else "We've sent your order to the seller. You'll get an email when it's confirmed.")
+        _buyer(o, f"Order placed — {o.order_number}", "Thanks for your order!", [lead])
         _seller(o)
 
 
@@ -97,6 +99,10 @@ def status_changed(o: Order) -> None:
         return
     heading, text = STATUS_TEXT[o.status]
     lead = [text]
+    if o.status == OrderStatus.SHIPPED and (o.courier or o.tracking_number):
+        lead.append(f"Courier: <b>{esc(o.courier or '—')}</b> · Tracking number: <b>{esc(o.tracking_number or '—')}</b>")
+    if o.status == OrderStatus.SHIPPED and settings.auto_deliver_days > 0:
+        lead.append("When it arrives, tap <b>I've received it</b> on your order page.")
     if o.status == OrderStatus.CANCELLED and o.payment_method == PaymentMethod.ONLINE and o.payment_status != "pending":
         lead.append("Your refund is being processed — we'll email you when it's done.")
     if o.status == OrderStatus.DELIVERED and o.payment_method == PaymentMethod.COD:

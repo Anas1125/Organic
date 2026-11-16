@@ -22,7 +22,7 @@ from app.models import (
     User,
 )
 from app.models.enums import GIVerification, OrderStatus, PaymentMethod, PaymentStatus, ReviewStatus, Role
-from app.services import payments
+from app.services import automation, payments
 from app.services import product_media as media
 from app.services.orders import ORDER_LOAD, change_status
 from app.services.queries import PRODUCT_LOAD
@@ -502,7 +502,7 @@ def orders(
     status_filter: str | None = Query(None, alias="status"),
     q: str | None = Query(None, max_length=50),
 ):
-    payments.expire_stale(db)
+    automation.run(db)
     stmt = select(Order).options(*ORDER_LOAD)
     if status_filter:
         stmt = stmt.where(Order.status == status_filter)
@@ -518,7 +518,7 @@ def set_order_status(order_id: int, body: s.OrderStatusIn, db: Session = Depends
     )
     if not o:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Order not found")
-    o = change_status(db, o, body.status, as_admin=True)
+    o = change_status(db, o, body.status, as_admin=True, courier=body.courier, tracking_number=body.tracking_number)
     # Online payments are tracked by Razorpay; only cash-on-delivery can be set by hand.
     if body.payment_status and body.payment_status != o.payment_status and o.payment_method == PaymentMethod.COD:
         o.payment_status = body.payment_status

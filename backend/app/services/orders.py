@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app import schemas as s
+from app.core.config import settings
 from app.models import CartItem, Order, OrderItem, Product, User
 from app.models.enums import OrderStatus, PaymentMethod, PaymentStatus
 from app.services import notify, payments
@@ -30,6 +31,11 @@ ORDER_LOAD = (
     selectinload(Order.seller),
     selectinload(Order.buyer),
 )
+
+
+def first_status() -> str:
+    """Where a placed (and, for online orders, paid) order starts."""
+    return OrderStatus.CONFIRMED if settings.auto_confirm_orders else OrderStatus.PENDING
 
 
 def _new_order_number() -> str:
@@ -82,7 +88,7 @@ def checkout(db: Session, buyer: User, body: s.CheckoutIn) -> list[Order]:
             checkout_ref=ref,
             buyer_id=buyer.id,
             seller_id=seller_id,
-            status=OrderStatus.AWAITING_PAYMENT if online else OrderStatus.PENDING,
+            status=OrderStatus.AWAITING_PAYMENT if online else first_status(),
             payment_method=PaymentMethod.ONLINE if online else PaymentMethod.COD,
             payment_status=PaymentStatus.PENDING,
             subtotal=Decimal(0),
@@ -131,7 +137,10 @@ def _restock(db: Session, order: Order) -> None:
             products[item.product_id].stock += item.quantity
 
 
-def change_status(db: Session, order: Order, new_status: str, *, as_admin: bool) -> Order:
+def change_status(
+    db: Session, order: Order, new_status: str, *, as_admin: bool,
+    courier: str | None = None, tracking_number: str | None = None, notify_buyer: bool = True,
+) -> Order:
     if new_status not in OrderStatus.__members__.values():
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Unknown order status")
     if new_status == order.status:
@@ -153,12 +162,20 @@ def change_status(db: Session, order: Order, new_status: str, *, as_admin: bool)
                 refund = True  # money goes back through Razorpay
             else:
                 order.payment_status = PaymentStatus.REFUNDED
-    if new_status == OrderStatus.DELIVERED and order.payment_method == PaymentMethod.COD:
-        order.payment_status = PaymentStatus.PAID
+    now = datetime.now(UTC)
+    if new_status == OrderStatus.SHIPPED:
+        order.shipped_at = now
+        order.courier = (courier or "").strip() or order.courier
+        order.tracking_number = (tracking_number or "").strip() or order.tracking_number
+    if new_status == OrderStatus.DELIVERED:
+        order.delivered_at = now
+        if order.payment_method == PaymentMethod.COD:
+            order.payment_status = PaymentStatus.PAID
     order.status = new_status
     db.commit()
     if refund:
         payments.refund_order(db, order, reason="Order cancelled")
     db.refresh(order)
-    notify.status_changed(order)
+    if notify_buyer:
+        notify.status_changed(order)
     return order

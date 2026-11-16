@@ -1,75 +1,69 @@
-import { ArrowRight, BadgeCheck, Leaf, Scale, ShieldCheck, Store, Truck } from 'lucide-react'
+import { ArrowRight, BadgeCheck, ChevronLeft, ChevronRight, Leaf, MapPin, Scale, ShieldCheck, Store, Truck } from 'lucide-react'
+import { useRef } from 'react'
 import { Link } from 'react-router-dom'
+import HeroCarousel from '../../components/HeroCarousel'
 import { CategoryIcon, categoryLook } from '../../components/Brand'
-import { ProductCardSkeleton, ProductGrid } from '../../components/product'
+import { ProductCard, ProductCardSkeleton } from '../../components/product'
 import { Button, ErrorBox } from '../../components/ui'
 import useFetch from '../../hooks/useFetch'
 import { useSite } from '../../context/SiteContext'
 
-function Hero() {
-  const bubbles = ['sarees-handlooms', 'spices', 'handicrafts', 'fruits', 'home-kitchen', 'rice-grains']
+/** Horizontal row with arrow buttons (wheel / swipe also scroll it). */
+function ScrollRow({ children, label }) {
+  const ref = useRef(null)
+  const by = (dir) => ref.current?.scrollBy({ left: dir * ref.current.clientWidth * 0.85, behavior: 'smooth' })
   return (
-    <section className="container-page pt-6 sm:pt-10">
-      <div className="grid items-center gap-8 lg:grid-cols-[1.1fr_1fr]">
-        <div>
-          <div className="mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-muted">GI-tagged / Wholesale / Tamil Nadu</div>
-          <h1 className="text-[40px] font-extrabold leading-[1.05] text-brand-900 sm:text-6xl">
-            Authentic GI<br />Products, <span className="text-brand-600">Wholesale</span>
-          </h1>
-          <div className="mt-4 h-1.5 w-20 rounded-full bg-brand-800" />
-          <p className="mt-5 max-w-md text-base leading-relaxed text-muted sm:text-lg">
-            Kanchipuram silk, Thanjavur crafts, Erode turmeric, Palani panchamirtham and more — bulk-priced and sourced from the districts that hold their GI tags.
-          </p>
-          <div className="mt-7 flex flex-wrap gap-3">
-            <Button to="/shop" size="lg">Shop wholesale <ArrowRight className="size-5" /></Button>
-            <Button to="/register?role=seller" size="lg" variant="outline">Sell with us</Button>
-          </div>
-          <p className="mt-8 text-lg italic text-brand-700/80">Genuine origin. Fair trade.</p>
-        </div>
-
-        <div>
-          <div className="flex flex-col gap-6 overflow-hidden rounded-[28px] bg-brand-100 p-6 sm:flex-row sm:items-center sm:p-8">
-            <div className="flex-1">
-              <span className="inline-block rounded-full bg-white px-3 py-1 text-xs font-semibold text-brand-800">Every GI tag checked</span>
-              <h2 className="mt-3 text-2xl font-bold leading-tight text-brand-900 sm:text-3xl">Straight from the district of origin</h2>
-              <p className="mt-2 text-sm text-brand-800/70">Food, handlooms and crafts from across Tamil Nadu, priced for retailers, hotels and exporters.</p>
-              <Button to="/shop" size="sm" className="mt-5">Shop now <ArrowRight className="size-4" /></Button>
-            </div>
-            <div className="grid shrink-0 grid-cols-6 gap-2 sm:w-48 sm:grid-cols-3 sm:gap-3 sm:pb-3">
-              {bubbles.map((slug, i) => (
-                <div
-                  key={slug}
-                  className={`grid aspect-square place-items-center rounded-2xl bg-white shadow-card ${i % 2 ? 'sm:translate-y-3' : ''}`}
-                  style={{ background: categoryLook(slug).bg }}
-                >
-                  <CategoryIcon slug={slug} className="size-5 sm:size-7" />
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+    <div className="group/row relative">
+      <div ref={ref} className="no-scrollbar -mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth px-4 pb-2 sm:mx-0 sm:px-0" aria-label={label}>
+        {children}
       </div>
-    </section>
+      <button type="button" onClick={() => by(-1)} className="absolute -left-4 top-1/2 hidden size-11 -translate-y-1/2 place-items-center rounded-full bg-white text-ink shadow-lift transition hover:scale-105 md:grid" aria-label="Scroll left"><ChevronLeft className="size-5" /></button>
+      <button type="button" onClick={() => by(1)} className="absolute -right-4 top-1/2 hidden size-11 -translate-y-1/2 place-items-center rounded-full bg-white text-ink shadow-lift transition hover:scale-105 md:grid" aria-label="Scroll right"><ChevronRight className="size-5" /></button>
+    </div>
+  )
+}
+
+function SectionHead({ eyebrow, title, to, link = 'See all' }) {
+  return (
+    <div className="mb-5 flex items-end justify-between gap-4">
+      <div>
+        {eyebrow && <div className="mb-1 text-xs font-semibold uppercase tracking-[0.18em] text-brand-600">{eyebrow}</div>}
+        <h2 className="text-2xl font-bold sm:text-3xl">{title}</h2>
+      </div>
+      {to && <Link to={to} className="flex shrink-0 items-center gap-1 text-sm font-semibold text-brand-700 hover:underline">{link} <ArrowRight className="size-4" /></Link>}
+    </div>
   )
 }
 
 function Categories() {
   const { data: all } = useFetch('/categories')
-  const data = all?.filter((c) => c.product_count > 0)
+  const data = all?.filter((c) => c.product_count > 0).sort((a, b) => b.product_count - a.product_count)
   if (!data?.length) return null
+  // Mosaic: the biggest category gets a large 2×2 tile. Then just enough of the next
+  // tiles are made double-width that every row is full (2, 4 and 6 columns).
+  const cells = 4 + (data.length - 1)
+  const extra = (cols) => (cols - (cells % cols)) % cols
+  const [x2, x4, x6] = [extra(2), extra(4), extra(6)]
+  const size = (i) => i === 0
+    ? 'col-span-2 row-span-2'
+    : [i <= x2 ? 'col-span-2' : 'col-span-1', i <= x4 ? 'sm:col-span-2' : 'sm:col-span-1', i <= x6 ? 'lg:col-span-2' : 'lg:col-span-1'].join(' ')
   return (
-    <section className="container-page mt-12">
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-xl font-bold sm:text-2xl">Shop by category</h2>
-        <Link to="/shop" className="flex items-center gap-1 text-sm font-semibold text-brand-700">See all <ArrowRight className="size-4" /></Link>
-      </div>
-      <div className="no-scrollbar -mx-4 flex gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-5 sm:px-0 lg:grid-cols-10">
-        {data.map((c) => (
-          <Link key={c.id} to={`/shop?category=${c.slug}`} className="group flex w-20 shrink-0 flex-col items-center gap-2 text-center sm:w-auto">
-            <span className="grid size-16 place-items-center rounded-full transition group-hover:scale-105 sm:size-[72px]" style={{ background: categoryLook(c.slug).bg }}>
-              <CategoryIcon slug={c.slug} className="size-7" />
+    <section className="container-page mt-14">
+      <SectionHead eyebrow="Browse" title="Shop by category" to="/shop" />
+      <div className="grid grid-flow-dense auto-rows-[150px] grid-cols-2 gap-3 sm:auto-rows-[170px] sm:grid-cols-4 sm:gap-4 lg:grid-cols-6">
+        {data.map((c, i) => (
+          <Link key={c.id} to={`/shop?category=${c.slug}`} className={`group relative overflow-hidden rounded-3xl ${size(i)}`} style={{ background: categoryLook(c.slug).bg }}>
+            {c.image
+              ? <img src={c.image} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+              : <span className="absolute inset-0 grid place-items-center"><CategoryIcon slug={c.slug} className="size-12" /></span>}
+            <span className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
+            <span className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 p-4 text-white">
+              <span>
+                <span className={`block font-bold leading-tight ${i === 0 ? 'text-2xl sm:text-3xl' : 'text-base sm:text-lg'}`}>{c.name}</span>
+                <span className="text-xs text-white/80">{c.product_count} product{c.product_count === 1 ? '' : 's'}</span>
+              </span>
+              <span className="grid size-8 shrink-0 place-items-center rounded-full bg-white/20 backdrop-blur transition group-hover:bg-white group-hover:text-ink"><ArrowRight className="size-4" /></span>
             </span>
-            <span className="text-xs font-medium leading-tight text-ink/80">{c.name}</span>
           </Link>
         ))}
       </div>
@@ -77,18 +71,43 @@ function Categories() {
   )
 }
 
+function Districts() {
+  const { data } = useFetch('/products/districts')
+  if (!data?.length) return null
+  const list = [...data].sort((a, b) => b.product_count - a.product_count)
+  return (
+    <section className="container-page mt-16">
+      <SectionHead eyebrow="Every GI tag belongs to a place" title="Shop by district" to="/shop" link="All districts" />
+      <ScrollRow label="Districts">
+        {list.map((d) => (
+          <Link key={d.name} to={`/shop?district=${encodeURIComponent(d.name)}`} className="group relative h-64 w-44 shrink-0 snap-start overflow-hidden rounded-3xl bg-brand-900 sm:w-52">
+            {d.image && <img src={d.image} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover opacity-90 transition duration-500 group-hover:scale-105 group-hover:opacity-100" />}
+            <span className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
+            <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-white/90 px-2 py-0.5 text-[11px] font-semibold text-brand-800"><MapPin className="size-3" /> Tamil Nadu</span>
+            <span className="absolute inset-x-0 bottom-0 p-4 text-white">
+              <span className="block text-lg font-bold leading-tight">{d.name}</span>
+              <span className="text-xs text-white/80">{d.product_count} GI product{d.product_count === 1 ? '' : 's'}</span>
+            </span>
+          </Link>
+        ))}
+      </ScrollRow>
+    </section>
+  )
+}
+
 function Popular() {
   const { site } = useSite()
-  const { data, loading, error, reload } = useFetch('/products', { page_size: 8 })
+  const { data, loading, error, reload } = useFetch('/products', { page_size: 12 })
   return (
-    <section className="container-page mt-12">
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-xl font-bold sm:text-2xl">New on {site.site_name}</h2>
-        <Link to="/shop" className="flex items-center gap-1 text-sm font-semibold text-brand-700">See all <ArrowRight className="size-4" /></Link>
-      </div>
+    <section className="container-page mt-16">
+      <SectionHead eyebrow="Just listed" title={`New on ${site.site_name}`} to="/shop" />
       {error ? <ErrorBox message={error} onRetry={reload} />
         : loading ? <ProductCardSkeleton count={4} />
-        : data.items.length ? <ProductGrid products={data.items} />
+        : data.items.length ? (
+          <ScrollRow label="New products">
+            {data.items.map((p) => <div key={p.id} className="w-[210px] shrink-0 snap-start sm:w-[260px]"><ProductCard product={p} /></div>)}
+          </ScrollRow>
+        )
         : <p className="card p-8 text-center text-sm text-muted">Products will appear here once sellers list them.</p>}
     </section>
   )
@@ -99,7 +118,7 @@ function Trust() {
     { icon: Leaf, title: 'Verified organic', text: 'The Organic badge only appears after we check a valid certificate.' },
     { icon: BadgeCheck, title: 'GI-tagged heritage', text: 'Geographical Indication details are reviewed before they are shown.' },
     { icon: Scale, title: 'Bulk pricing', text: 'Prices drop automatically as your quantity goes up.' },
-    { icon: Truck, title: 'Cash on delivery', text: 'Pay when your order reaches you.' },
+    { icon: Truck, title: 'UPI or cash on delivery', text: 'Pay securely online, or when your order reaches you.' },
   ]
   return (
     <section className="container-page mt-14">
@@ -123,7 +142,7 @@ function SellerCTA() {
         <div className="max-w-xl">
           <div className="mb-3 grid size-11 place-items-center rounded-xl bg-white/10"><Store className="size-5" /></div>
           <h2 className="text-2xl font-bold sm:text-3xl">Grow it, make it, sell it here</h2>
-          <p className="mt-2 text-brand-100/80">Farmers, fishing collectives and home food makers reach buyers across India — individual customers and wholesale shops.</p>
+          <p className="mt-2 text-brand-100/80">GI producers, weavers and artisans reach shops, hotels and exporters across India — with wholesale pricing built in.</p>
         </div>
         <div className="flex flex-wrap gap-3">
           <Button to="/register?role=seller" size="lg" variant="secondary">Become a seller <ArrowRight className="size-5" /></Button>
@@ -139,8 +158,9 @@ function SellerCTA() {
 export default function Home() {
   return (
     <>
-      <Hero />
+      <HeroCarousel />
       <Categories />
+      <Districts />
       <Popular />
       <Trust />
       <SellerCTA />

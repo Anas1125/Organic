@@ -34,6 +34,11 @@ class Settings(BaseSettings):
     razorpay_webhook_secret: str | None = None
     payment_window_minutes: int = 30  # unpaid online orders are cancelled after this
 
+    # Order automation (no courier account needed)
+    auto_confirm_orders: bool = True  # placed / paid orders go straight to "confirmed"
+    auto_deliver_days: int = 7  # shipped orders become "delivered" after this many days (0 = off)
+    cron_secret: str | None = None  # Vercel Cron sends it as "Authorization: Bearer …"
+
     cors_origins: str = "http://localhost:5173"
 
     # local = disk (development), database = Postgres (free, works on Vercel), s3 = any S3 bucket

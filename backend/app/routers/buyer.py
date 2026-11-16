@@ -9,7 +9,7 @@ from app.core.deps import require_buyer
 from app.db import get_db
 from app.models import Address, CartItem, Order, Product, User
 from app.models.enums import OrderStatus
-from app.services import payments
+from app.services import automation, payments
 from app.services import orders as order_service
 from app.services.orders import ORDER_LOAD
 from app.services.pricing import check_quantity, unit_price_for
@@ -147,7 +147,7 @@ def checkout(
 
 @router.get("/orders", response_model=list[s.OrderOut])
 def my_orders(buyer: User = Depends(require_buyer), db: Session = Depends(get_db)):
-    payments.expire_stale(db)
+    automation.run(db)
     rows = db.scalars(
         select(Order)
         .where(Order.buyer_id == buyer.id)
@@ -170,6 +170,15 @@ def _own_order(db: Session, buyer: User, order_id: int, lock: bool = False) -> O
 @router.get("/orders/{order_id}", response_model=s.OrderOut)
 def my_order(order_id: int, buyer: User = Depends(require_buyer), db: Session = Depends(get_db)):
     return order_out(_own_order(db, buyer, order_id))
+
+
+@router.post("/orders/{order_id}/received", response_model=s.OrderOut)
+def order_received(order_id: int, buyer: User = Depends(require_buyer), db: Session = Depends(get_db)):
+    """The buyer confirms the delivery arrived (otherwise it's marked delivered automatically)."""
+    o = _own_order(db, buyer, order_id, lock=True)
+    if o.status != OrderStatus.SHIPPED:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Only shipped orders can be marked as received")
+    return order_out(order_service.change_status(db, o, OrderStatus.DELIVERED, as_admin=True))
 
 
 @router.post("/orders/{order_id}/cancel", response_model=s.OrderOut)

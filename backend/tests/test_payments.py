@@ -106,7 +106,7 @@ def test_successful_payment(client, buyer, seller, admin, category, rzp, mails):
     assert client.post("/api/v1/payments/verify", json=paid, headers=buyer).status_code == 200
 
     got = client.get(f"/api/v1/orders/{o['id']}", headers=buyer).json()
-    assert got["status"] == "pending" and got["payment_status"] == "paid" and got["payment_method"] == "online"
+    assert got["status"] == "confirmed" and got["payment_status"] == "paid" and got["payment_method"] == "online"
     assert len(client.get("/api/v1/seller/orders", headers=seller).json()) == 1
     assert {s for _, s in mails} == {f"Payment received — {o['order_number']}", f"New order {o['order_number']}"}
 
@@ -152,7 +152,7 @@ def test_paid_but_browser_closed_is_not_expired(client, buyer, seller, admin, ca
         db.get(Order, orders[0]["id"]).created_at = datetime.now(UTC) - timedelta(hours=2)
         db.commit()
     got = client.get("/api/v1/orders", headers=buyer).json()[0]
-    assert got["status"] == "pending" and got["payment_status"] == "paid"
+    assert got["status"] == "confirmed" and got["payment_status"] == "paid"
 
 
 def _paid_order(client, buyer, seller, admin, category, rzp):
@@ -201,7 +201,8 @@ def test_status_emails(client, buyer, seller, admin, category, mails):
     client.post("/api/v1/cart/items", json={"product_id": pid, "quantity": 1}, headers=buyer)
     o = client.post("/api/v1/orders/checkout", json=ADDRESS, headers=buyer).json()[0]
     assert {s for _, s in mails} == {f"Order placed — {o['order_number']}", f"New order {o['order_number']}"}
-    for st, subject in [("confirmed", "Order confirmed"), ("packed", "Order packed"), ("shipped", "Out for delivery"), ("delivered", "Order delivered")]:
+    assert o["status"] == "confirmed"  # confirmed automatically when placed
+    for st, subject in [("packed", "Order packed"), ("shipped", "Out for delivery"), ("delivered", "Order delivered")]:
         client.patch(f"/api/v1/seller/orders/{o['id']}/status", json={"status": st}, headers=seller)
         assert mails[-1][1] == f"{subject} — {o['order_number']}"
 

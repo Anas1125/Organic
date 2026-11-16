@@ -26,7 +26,7 @@ from app.services.orders import ORDER_LOAD, change_status
 from app.services.pricing import validate_tiers
 from app.services.queries import PRODUCT_LOAD
 from app.services.serializers import cert_out, gi_out, order_out, product_out
-from app.services import payments
+from app.services import automation, payments
 from app.services import product_media as media
 from app.services.storage import get_storage, save_upload
 
@@ -299,7 +299,7 @@ def my_orders(
     db: Session = Depends(get_db),
     status_filter: str | None = Query(None, alias="status"),
 ):
-    payments.expire_stale(db)
+    automation.run(db)
     stmt = (
         select(Order)
         .where(Order.seller_id == seller.id, Order.status != OrderStatus.AWAITING_PAYMENT)
@@ -339,7 +339,38 @@ def update_order_status(
     )
     if not o:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Order not found")
-    return order_out(change_status(db, o, body.status, as_admin=False))
+    return order_out(change_status(
+        db, o, body.status, as_admin=False, courier=body.courier, tracking_number=body.tracking_number,
+    ))
+
+
+@router.post("/orders/bulk-status", response_model=s.BulkStatusOut)
+def bulk_status(
+    body: s.BulkStatusIn,
+    seller: SellerProfile = Depends(get_current_seller),
+    db: Session = Depends(get_db),
+):
+    """Move many orders at once (e.g. select all → Mark shipped). Each order is checked on
+    its own; ones that can't move are reported back instead of stopping the rest."""
+    orders = db.scalars(
+        select(Order)
+        .where(Order.id.in_(body.order_ids), Order.seller_id == seller.id)
+        .options(*ORDER_LOAD)
+        .with_for_update(of=Order)
+    ).all()
+    found = {o.id for o in orders}
+    updated, failed = [], [{"id": i, "reason": "Order not found"} for i in body.order_ids if i not in found]
+    for o in orders:
+        try:
+            o = change_status(
+                db, o, body.status, as_admin=False,
+                courier=body.courier, tracking_number=body.tracking.get(str(o.id)),
+            )
+            updated.append(order_out(o))
+        except HTTPException as e:
+            db.rollback()
+            failed.append({"id": o.id, "order_number": o.order_number, "reason": e.detail})
+    return s.BulkStatusOut(updated=updated, failed=failed)
 
 
 # ---------- Stats ----------

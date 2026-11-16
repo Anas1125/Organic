@@ -255,6 +255,11 @@ class Order(TimestampMixin, Base):
     refund_id: Mapped[str | None] = mapped_column(String(40))
     refunded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     refund_error: Mapped[str | None] = mapped_column(String(300))  # why the last refund attempt failed
+    # Shipping (filled in when the seller marks it shipped).
+    courier: Mapped[str | None] = mapped_column(String(60))
+    tracking_number: Mapped[str | None] = mapped_column(String(80))
+    shipped_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     subtotal: Mapped[Decimal] = mapped_column(Money)
     total: Mapped[Decimal] = mapped_column(Money)
     shipping_name: Mapped[str] = mapped_column(String(120))

@@ -1,4 +1,4 @@
-import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Clock, Package, Store } from 'lucide-react'
+import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Clock, Package, Store, Truck } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import api, { errorMessage } from '../../api/client'
@@ -135,6 +135,18 @@ export function OrderDetail() {
   if (loading) return <Spinner className="min-h-[60vh]" />
   if (error) return <div className="container-page py-10"><ErrorBox message={error} /></div>
 
+  const received = async () => {
+    setBusy(true)
+    try {
+      setData((await api.post(`/orders/${o.id}/received`)).data)
+      toast.success('Thanks! Marked as delivered')
+    } catch (e) {
+      toast.error(errorMessage(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const cancel = async () => {
     if (!window.confirm('Cancel this order?')) return
     setBusy(true)
@@ -158,6 +170,19 @@ export function OrderDetail() {
         {o.status === 'awaiting_payment' && <UnpaidNotice orderRef={o.checkout_ref} total={Number(o.total)} onDone={reload} />}
       </div>
       <div className="card p-5 sm:p-6"><OrderTimeline status={o.status} /></div>
+      {['shipped', 'delivered'].includes(o.status) && (o.courier || o.tracking_number || o.status === 'shipped') && (
+        <div className="mt-4 flex flex-wrap items-center gap-4 rounded-2xl border border-violet-100 bg-violet-50 p-4 text-sm text-violet-950">
+          <Truck className="size-5 shrink-0 text-violet-700" />
+          <div className="min-w-0 flex-1">
+            {(o.courier || o.tracking_number)
+              ? <div><strong>{o.courier || 'Courier'}</strong>{o.tracking_number && <> · Tracking number <span className="font-mono font-semibold">{o.tracking_number}</span></>}</div>
+              : <div><strong>Shipped</strong> — the seller didn't add a tracking number.</div>}
+            {o.status === 'shipped' && o.auto_delivery_on && <div className="mt-0.5 text-violet-900/70">If you don't confirm, it will be marked delivered on {date(o.auto_delivery_on)}.</div>}
+            {o.status === 'delivered' && o.delivered_at && <div className="mt-0.5 text-violet-900/70">Delivered on {date(o.delivered_at)}.</div>}
+          </div>
+          {o.status === 'shipped' && <Button size="sm" loading={busy} onClick={received}>I've received it</Button>}
+        </div>
+      )}
       {['refund_pending', 'refunded', 'refund_failed'].includes(o.payment_status) && (
         <div className="mt-4 rounded-2xl bg-sky-50 p-4 text-sm text-sky-900">
           {o.payment_status === 'refunded' && <><strong>Refunded.</strong> {money(o.total)} was returned to your original payment method.</>}

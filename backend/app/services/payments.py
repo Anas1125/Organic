@@ -100,7 +100,7 @@ def confirm_paid(db: Session, razorpay_order_id: str, razorpay_payment_id: str) 
     late = []  # paid after the orders were cancelled/expired → refund
     for o in orders:
         if o.status == OrderStatus.AWAITING_PAYMENT:
-            o.status = OrderStatus.PENDING
+            o.status = OrderStatus.CONFIRMED if settings.auto_confirm_orders else OrderStatus.PENDING
             o.payment_status = PaymentStatus.PAID
         elif o.status == OrderStatus.CANCELLED and o.payment_status == PaymentStatus.PENDING:
             o.payment_status = PaymentStatus.PAID
@@ -109,7 +109,7 @@ def confirm_paid(db: Session, razorpay_order_id: str, razorpay_payment_id: str) 
 
     for o in late:
         refund_order(db, o, reason="Payment arrived after the order was cancelled")
-    paid = [o for o in orders if o.status == OrderStatus.PENDING]
+    paid = [o for o in orders if o.status in (OrderStatus.PENDING, OrderStatus.CONFIRMED) and o.payment_status == PaymentStatus.PAID]
     if paid:
         notify.payment_received(paid, payment)
     return payment

@@ -1,4 +1,6 @@
-from datetime import date
+from datetime import date, timedelta
+
+from app.core.config import settings
 
 from app import schemas as s
 from app.models import GIRecord, Order, OrganicCertification, Product, User
@@ -91,6 +93,8 @@ def order_out(o: Order) -> s.OrderOut:
     out = s.OrderOut.model_validate(o)
     out.buyer_name = o.buyer.full_name
     out.buyer_email = o.buyer.email
+    if o.status == "shipped" and o.shipped_at and settings.auto_deliver_days > 0:
+        out.auto_delivery_on = o.shipped_at + timedelta(days=settings.auto_deliver_days)
     for item_out, item in zip(out.items, o.items):
         if item.product and item.product.images:
             first = min(item.product.images, key=lambda im: im.sort_order)
