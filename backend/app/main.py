@@ -8,8 +8,15 @@ from app.core.config import settings
 from app.routers import admin, auth, buyer, catalog, documents, media, payments, seller, site
 
 logger = logging.getLogger("terralens")
-if not logger.handlers:  # show the app's own info messages (e.g. emails in development)
-    _h = logging.StreamHandler()
+class _PrintHandler(logging.Handler):
+    """Writes via print(), which Vercel captures (it swaps stdout/stderr after import)."""
+
+    def emit(self, record):
+        print(self.format(record), flush=True)
+
+
+if not logger.handlers:  # show the app's own info/warning messages in the host's logs
+    _h = _PrintHandler()
     _h.setFormatter(logging.Formatter("%(levelname)s [terralens] %(message)s"))
     logger.addHandler(_h)
     logger.setLevel(logging.INFO)

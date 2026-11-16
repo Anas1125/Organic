@@ -218,7 +218,7 @@ def refund_order(db: Session, order: Order, *, reason: str) -> Order:
 def _refund_failed(db: Session, order: Order, why: str) -> Order:
     logger.error("Refund failed for %s: %s", order.order_number, why)
     order.payment_status = PaymentStatus.REFUND_FAILED
-    order.refund_error = why[:300]
+    order.refund_error = why[:300]  # column is 300 chars
     db.commit()
     return order
 

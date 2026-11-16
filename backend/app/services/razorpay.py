@@ -45,7 +45,9 @@ def _call(method: str, path: str, **kw) -> dict:
             )
             if extra:
                 msg = f"{msg} ({extra})"
-            logger.error("Razorpay %s %s -> HTTP %s %s", method, path, r.status_code, r.text[:1000])
+            if "invalid request" in msg.lower():  # generic message: keep Razorpay's raw reply too
+                msg = f"{msg} — HTTP {r.status_code} {method} {path.split('/')[1]}: {r.text[:180]}"
+            print(f"[razorpay] {method} {path} -> HTTP {r.status_code} {r.text[:1000]}", flush=True)
         except Exception:
             msg = f"The payment provider returned an error (HTTP {r.status_code})"
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, msg)
