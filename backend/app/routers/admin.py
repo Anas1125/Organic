@@ -539,6 +539,8 @@ def refund_order(order_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Only paid online orders can be refunded here")
     payments.refund_order(db, o, reason="Refunded by admin")
     db.refresh(o)
+    if o.payment_status == PaymentStatus.REFUND_FAILED:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"Refund failed — {o.refund_error}")
     return order_out(o)
 
 

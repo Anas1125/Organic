@@ -435,6 +435,7 @@ class OrderOut(ORM):
     payment_status: str
     refund_id: str | None = None
     refunded_at: datetime | None = None
+    refund_error: str | None = None
     subtotal: Decimal
     total: Decimal
     shipping_name: str

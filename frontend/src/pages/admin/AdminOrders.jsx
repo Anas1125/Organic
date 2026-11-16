@@ -51,7 +51,7 @@ function AdminOrderPanel({ order, onChange }) {
       </div>
       {canRefund && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-canvas p-3 text-sm">
-          <span>{order.payment_status === 'refund_failed' ? 'The refund failed at Razorpay. Try again:' : 'Paid online. For returns or problems you can refund the buyer in full.'}</span>
+          <span>{order.payment_status === 'refund_failed' ? <>The last refund attempt failed{order.refund_error ? <>: <strong>{order.refund_error}</strong></> : '.'}</> : 'Paid online. For returns or problems you can refund the buyer in full.'}</span>
           <Button size="sm" variant="danger-soft" loading={busy} onClick={refund}>{order.payment_status === 'refund_failed' ? 'Retry refund' : 'Refund buyer'}</Button>
         </div>
       )}

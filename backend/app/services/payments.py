@@ -198,23 +198,28 @@ def refund_order(db: Session, order: Order, *, reason: str) -> Order:
         select(Payment).where(Payment.checkout_ref == order.checkout_ref, Payment.status == "paid")
     )
     if not payment or not payment.razorpay_payment_id:
-        order.payment_status = PaymentStatus.REFUND_FAILED
-        db.commit()
-        return order
+        return _refund_failed(db, order, "No completed Razorpay payment was found for this order")
     try:
         r = rzp.refund(payment.razorpay_payment_id, order.total, notes={"order": order.order_number, "reason": reason[:200]})
-        order.refund_id = r.get("id")
-        if r.get("status") == "processed":
-            order.payment_status = PaymentStatus.REFUNDED
-            order.refunded_at = datetime.now(UTC)
-        else:
-            order.payment_status = PaymentStatus.REFUND_PENDING
-        db.commit()
-        notify.refund_started(order)
     except HTTPException as e:
-        logger.warning("Refund failed for %s: %s", order.order_number, e.detail)
-        order.payment_status = PaymentStatus.REFUND_FAILED
-        db.commit()
+        return _refund_failed(db, order, f"Razorpay: {e.detail}")
+    order.refund_id = r.get("id")
+    order.refund_error = None
+    if r.get("status") == "processed":
+        order.payment_status = PaymentStatus.REFUNDED
+        order.refunded_at = datetime.now(UTC)
+    else:
+        order.payment_status = PaymentStatus.REFUND_PENDING
+    db.commit()
+    notify.refund_started(order)
+    return order
+
+
+def _refund_failed(db: Session, order: Order, why: str) -> Order:
+    logger.error("Refund failed for %s: %s", order.order_number, why)
+    order.payment_status = PaymentStatus.REFUND_FAILED
+    order.refund_error = why[:300]
+    db.commit()
     return order
 
 

@@ -254,6 +254,7 @@ class Order(TimestampMixin, Base):
     # Razorpay refund for this order (one payment can cover several sellers' orders).
     refund_id: Mapped[str | None] = mapped_column(String(40))
     refunded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    refund_error: Mapped[str | None] = mapped_column(String(300))  # why the last refund attempt failed
     subtotal: Mapped[Decimal] = mapped_column(Money)
     total: Mapped[Decimal] = mapped_column(Money)
     shipping_name: Mapped[str] = mapped_column(String(120))

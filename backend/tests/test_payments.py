@@ -204,3 +204,32 @@ def test_status_emails(client, buyer, seller, admin, category, mails):
     for st, subject in [("confirmed", "Order confirmed"), ("packed", "Order packed"), ("shipped", "Out for delivery"), ("delivered", "Order delivered")]:
         client.patch(f"/api/v1/seller/orders/{o['id']}/status", json={"status": st}, headers=seller)
         assert mails[-1][1] == f"{subject} — {o['order_number']}"
+
+
+def test_failed_then_paid_then_cancel_refunds(client, buyer, seller, admin, category, rzp, mails):
+    """Exactly what happened in the live test: a card is refused, a second card works on the
+    same Razorpay order, then the buyer cancels → refund."""
+    _, orders = _checkout_online(client, buyer, seller, admin, category)
+    ref = orders[0]["checkout_ref"]
+    start = client.post(f"/api/v1/payments/checkout/{ref}/start", headers=buyer).json()
+    client.post("/api/v1/payments/failed", json={"razorpay_order_id": start["razorpay_order_id"], "reason": "International cards are not supported"}, headers=buyer)
+    assert client.post("/api/v1/payments/verify", json=rzp.pay(start["razorpay_order_id"]), headers=buyer).status_code == 200
+    r = client.post(f"/api/v1/orders/{orders[0]['id']}/cancel", headers=buyer).json()
+    assert r["payment_status"] == "refund_pending", r
+
+
+def test_refund_error_is_kept_and_shown(client, buyer, seller, admin, category, rzp, monkeypatch):
+    from fastapi import HTTPException
+
+    from app.services import razorpay as mod
+
+    o = _paid_order(client, buyer, seller, admin, category, rzp)
+
+    def boom(*a, **k):
+        raise HTTPException(502, "The refund amount is greater than the refundable amount")
+
+    monkeypatch.setattr(mod, "refund", boom)
+    r = client.post(f"/api/v1/orders/{o['id']}/cancel", headers=buyer).json()
+    assert r["payment_status"] == "refund_failed" and "refundable amount" in r["refund_error"]
+    retry = client.post(f"/api/v1/admin/orders/{o['id']}/refund", headers=admin)
+    assert retry.status_code == 502 and "refundable amount" in retry.json()["detail"]
