@@ -67,3 +67,21 @@ def test_seed_does_not_recreate_admin(client, admin, monkeypatch):
         seed.seed_base(db)
         emails = [u.email for u in db.query(User).filter_by(role="admin")]
     assert emails == ["admin@test.io"]
+
+
+def test_owner_sets_any_users_password(client, admin, seller):
+    from tests.conftest import PASSWORD
+
+    sid = client.get("/api/v1/auth/me", headers=seller).json()["id"]
+    r = client.put(f"/api/v1/admin/users/{sid}/password", json={"password": "short"}, headers=admin)
+    assert r.status_code == 422
+    assert client.put(f"/api/v1/admin/users/{sid}/password", json={"password": "brand-new-9"}, headers=admin).status_code == 204
+    email = client.get("/api/v1/auth/me", headers=seller).json()["email"]
+    assert login(client, email, PASSWORD).status_code == 401
+    assert login(client, email, "brand-new-9").status_code == 200
+    # Other admins can't, and the owner uses My account for themselves
+    client.post("/api/v1/admin/admins", json=NEW, headers=admin)
+    second = auth(login(client, NEW["email"], NEW["password"]).json()["access_token"])
+    assert client.put(f"/api/v1/admin/users/{sid}/password", json={"password": "x" * 10}, headers=second).status_code == 403
+    owner_id = client.get("/api/v1/auth/me", headers=admin).json()["id"]
+    assert client.put(f"/api/v1/admin/users/{owner_id}/password", json={"password": "x" * 10}, headers=admin).status_code == 400

@@ -1,8 +1,8 @@
-import { Search, Store, Users } from 'lucide-react'
+import { KeyRound, Search, Store, Users } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import api, { errorMessage } from '../../api/client'
-import { Button, EmptyState, ErrorBox, PageHeader, Spinner, StatusBadge, Tabs } from '../../components/ui'
+import { Button, EmptyState, ErrorBox, Field, Modal, PageHeader, PasswordInput, Spinner, StatusBadge, Tabs } from '../../components/ui'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../context/ToastContext'
 import useFetch from '../../hooks/useFetch'
@@ -16,6 +16,24 @@ export function AdminUsers() {
   const [q, setQ] = useState('')
   const { data, setData, loading, error, reload } = useFetch('/admin/users', { role: role || undefined })
   const rows = (data || []).filter((u) => `${u.full_name} ${u.email}`.toLowerCase().includes(q.toLowerCase()))
+
+  const [pwFor, setPwFor] = useState(null)
+  const [pw, setPw] = useState('')
+  const [pwBusy, setPwBusy] = useState(false)
+  const setPassword = async (e) => {
+    e.preventDefault()
+    setPwBusy(true)
+    try {
+      await api.put(`/admin/users/${pwFor.id}/password`, { password: pw })
+      toast.success(`New password set for ${pwFor.email}`)
+      setPwFor(null)
+      setPw('')
+    } catch (err) {
+      toast.error(errorMessage(err))
+    } finally {
+      setPwBusy(false)
+    }
+  }
 
   const toggle = async (u) => {
     if (u.is_active && !window.confirm(`Deactivate ${u.full_name}? They will be logged out and their products hidden.`)) return
@@ -53,9 +71,14 @@ export function AdminUsers() {
                   <td className="whitespace-nowrap text-muted">{date(u.created_at)}</td>
                   <td><StatusBadge status={u.is_active ? 'active' : 'inactive'} /></td>
                   <td className="text-right">
-                    {u.id !== me.id && !u.is_owner && (u.role !== 'admin' || me.is_owner) && (
-                      <Button size="sm" variant={u.is_active ? 'danger-soft' : 'secondary'} onClick={() => toggle(u)}>{u.is_active ? 'Deactivate' : 'Activate'}</Button>
-                    )}
+                    <div className="flex justify-end gap-2 whitespace-nowrap">
+                      {me.is_owner && u.id !== me.id && (
+                        <Button size="sm" variant="outline" onClick={() => { setPwFor(u); setPw('') }}><KeyRound className="size-4" /> Set password</Button>
+                      )}
+                      {u.id !== me.id && !u.is_owner && (u.role !== 'admin' || me.is_owner) && (
+                        <Button size="sm" variant={u.is_active ? 'danger-soft' : 'secondary'} onClick={() => toggle(u)}>{u.is_active ? 'Deactivate' : 'Activate'}</Button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -63,6 +86,18 @@ export function AdminUsers() {
           </table>
         </div>
       )}
+
+      <Modal open={Boolean(pwFor)} onClose={() => setPwFor(null)} title="Set a new password"
+        footer={<><Button variant="outline" onClick={() => setPwFor(null)}>Cancel</Button><Button type="submit" form="set-pw" loading={pwBusy}>Save password</Button></>}>
+        {pwFor && (
+          <form id="set-pw" onSubmit={setPassword} className="space-y-4 text-sm">
+            <p>For <strong>{pwFor.full_name}</strong> <span className="text-muted [overflow-wrap:anywhere]">({pwFor.email})</span>. Their old password stops working straight away.</p>
+            <Field label="New password" hint="At least 8 characters. Share it with them privately.">
+              <PasswordInput required minLength={8} maxLength={128} autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} />
+            </Field>
+          </form>
+        )}
+      </Modal>
     </>
   )
 }

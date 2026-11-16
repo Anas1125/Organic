@@ -78,6 +78,10 @@ class UserUpdate(BaseModel):
     new_password: str | None = Field(default=None, min_length=8, max_length=128)
 
 
+class PasswordSet(BaseModel):
+    password: str = Field(min_length=8, max_length=128)
+
+
 class AdminCreate(BaseModel):
     full_name: str = Field(min_length=2, max_length=120)
     email: EmailStr

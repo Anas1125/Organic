@@ -121,6 +121,24 @@ def set_user_active(
     return user_out(user)
 
 
+@router.put("/users/{user_id}/password", status_code=204)
+def set_user_password(
+    user_id: int,
+    body: s.PasswordSet,
+    db: Session = Depends(get_db),
+    owner: User = Depends(require_owner),
+):
+    """Main admin only: give any buyer, seller or admin a new password (e.g. a forgotten one).
+    Their own password for the main admin is changed under My account instead."""
+    user = db.get(User, user_id)
+    if not user:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
+    if user.id == owner.id:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Change your own password under My account")
+    user.password_hash = hash_password(body.password)
+    db.commit()
+
+
 # ---------- Admin accounts (main admin only) ----------
 
 
