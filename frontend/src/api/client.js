@@ -2,12 +2,18 @@ import axios from 'axios'
 
 const TOKEN_KEY = 'terralens_token'
 
+// "Remember me" keeps the login in localStorage (survives closing the browser);
+// otherwise it lives in sessionStorage and ends with the browser session.
 export const tokenStore = {
   get: () => {
-    try { return localStorage.getItem(TOKEN_KEY) } catch { return null }
+    try { return localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY) } catch { return null }
   },
-  set: (t) => {
-    try { t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY) } catch { /* private mode */ }
+  set: (t, remember = true) => {
+    try {
+      localStorage.removeItem(TOKEN_KEY)
+      sessionStorage.removeItem(TOKEN_KEY)
+      if (t) (remember ? localStorage : sessionStorage).setItem(TOKEN_KEY, t)
+    } catch { /* private mode */ }
   },
 }
 

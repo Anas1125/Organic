@@ -14,6 +14,20 @@ function AdminOrderPanel({ order, onChange }) {
   const [payment, setPayment] = useState(order.payment_status)
   const [busy, setBusy] = useState(false)
 
+  const canRefund = order.payment_method === 'online' && ['paid', 'refund_failed'].includes(order.payment_status)
+  const refund = async () => {
+    if (!window.confirm(`Refund ${order.total} to the buyer through Razorpay? This can't be undone.`)) return
+    setBusy(true)
+    try {
+      onChange((await api.post(`/admin/orders/${order.id}/refund`)).data)
+      toast.success('Refund started')
+    } catch (e) {
+      toast.error(errorMessage(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const save = async () => {
     if (status === 'cancelled' && !window.confirm('Cancel this order? Stock will be returned to the seller.')) return
     setBusy(true)
@@ -35,18 +49,28 @@ function AdminOrderPanel({ order, onChange }) {
         <div><h3 className="mb-1 text-sm font-semibold">Items · {order.seller.business_name}</h3><OrderItemsTable order={order} /></div>
         <div><h3 className="mb-1 text-sm font-semibold">Ship to</h3><ShippingBlock order={order} /><div className="mt-2 text-xs text-muted">Buyer: {order.buyer_name} · {order.buyer_email}</div></div>
       </div>
-      {order.status !== 'cancelled' && (
+      {canRefund && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-canvas p-3 text-sm">
+          <span>{order.payment_status === 'refund_failed' ? 'The refund failed at Razorpay. Try again:' : 'Paid online. For returns or problems you can refund the buyer in full.'}</span>
+          <Button size="sm" variant="danger-soft" loading={busy} onClick={refund}>{order.payment_status === 'refund_failed' ? 'Retry refund' : 'Refund buyer'}</Button>
+        </div>
+      )}
+      {!['cancelled', 'awaiting_payment'].includes(order.status) && (
         <div className="grid gap-3 border-t border-line pt-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
           <Field label="Order status">
             <Select value={status} onChange={(e) => setStatus(e.target.value)}>
               {[...ORDER_STEPS, 'cancelled'].map((s) => <option key={s} value={s}>{s[0].toUpperCase() + s.slice(1)}</option>)}
             </Select>
           </Field>
-          <Field label="Payment">
-            <Select value={payment} onChange={(e) => setPayment(e.target.value)}>
-              <option value="pending">Pending</option><option value="paid">Paid</option><option value="refunded">Refunded</option>
-            </Select>
-          </Field>
+          {order.payment_method === 'cod' ? (
+            <Field label="Payment (cash on delivery)">
+              <Select value={payment} onChange={(e) => setPayment(e.target.value)}>
+                <option value="pending">Pending</option><option value="paid">Paid</option><option value="refunded">Refunded</option>
+              </Select>
+            </Field>
+          ) : (
+            <Field label="Payment"><div className="input flex items-center text-muted">Online · tracked by Razorpay</div></Field>
+          )}
           <Button onClick={save} loading={busy} disabled={status === order.status && payment === order.payment_status}>Save</Button>
         </div>
       )}
@@ -67,7 +91,7 @@ export function AdminOrders() {
     <>
       <PageHeader title="All orders" subtitle="Admins can override any order’s status or payment." />
       <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <Tabs value={tab} onChange={setTab} options={[{ value: '', label: 'All', count: data?.length }, ...[...ORDER_STEPS, 'cancelled'].map((s) => ({ value: s, label: s[0].toUpperCase() + s.slice(1), count: count(s) }))]} />
+        <Tabs value={tab} onChange={setTab} options={[{ value: '', label: 'All', count: data?.length }, ...['awaiting_payment', ...ORDER_STEPS, 'cancelled'].map((s) => ({ value: s, label: s === 'awaiting_payment' ? 'Unpaid' : s[0].toUpperCase() + s.slice(1), count: count(s) }))]} />
         <div className="relative lg:w-64">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
           <input className="input pl-9" placeholder="Order no., buyer or seller" value={q} onChange={(e) => setQ(e.target.value)} />

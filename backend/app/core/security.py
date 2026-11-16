@@ -17,13 +17,14 @@ def verify_password(password: str, hashed: str) -> bool:
         return False
 
 
-def create_access_token(user_id: int, role: str) -> str:
+def create_access_token(user_id: int, role: str, *, remember: bool = False) -> str:
     now = datetime.now(UTC)
+    life = timedelta(days=settings.remember_me_days) if remember else timedelta(minutes=settings.jwt_expire_minutes)
     payload = {
         "sub": str(user_id),
         "role": role,
         "iat": now,
-        "exp": now + timedelta(minutes=settings.jwt_expire_minutes),
+        "exp": now + life,
     }
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 

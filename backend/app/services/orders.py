@@ -9,11 +9,14 @@ from sqlalchemy.orm import Session, selectinload
 from app import schemas as s
 from app.models import CartItem, Order, OrderItem, Product, User
 from app.models.enums import OrderStatus, PaymentMethod, PaymentStatus
+from app.services import notify, payments
+from app.services import razorpay as rzp
 from app.services.pricing import check_quantity, unit_price_for
 from app.services.queries import visible_products
 
 # Which statuses a seller may move an order to from each status.
 SELLER_FLOW: dict[str, set[str]] = {
+    OrderStatus.AWAITING_PAYMENT: set(),  # only the buyer (or the payment window) can end this
     OrderStatus.PENDING: {OrderStatus.CONFIRMED, OrderStatus.CANCELLED},
     OrderStatus.CONFIRMED: {OrderStatus.PACKED, OrderStatus.CANCELLED},
     OrderStatus.PACKED: {OrderStatus.SHIPPED, OrderStatus.CANCELLED},
@@ -38,6 +41,9 @@ def checkout(db: Session, buyer: User, body: s.CheckoutIn) -> list[Order]:
     cart = db.scalars(select(CartItem).where(CartItem.buyer_id == buyer.id)).all()
     if not cart:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Your cart is empty")
+    online = body.payment_method == PaymentMethod.ONLINE
+    if online and not rzp.enabled():
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Online payment isn't available right now. Please choose cash on delivery.")
 
     # Lock product rows so two buyers can't buy the same last units at once.
     product_ids = sorted(ci.product_id for ci in cart)
@@ -76,7 +82,8 @@ def checkout(db: Session, buyer: User, body: s.CheckoutIn) -> list[Order]:
             checkout_ref=ref,
             buyer_id=buyer.id,
             seller_id=seller_id,
-            payment_method=PaymentMethod.COD,
+            status=OrderStatus.AWAITING_PAYMENT if online else OrderStatus.PENDING,
+            payment_method=PaymentMethod.ONLINE if online else PaymentMethod.COD,
             payment_status=PaymentStatus.PENDING,
             subtotal=Decimal(0),
             total=Decimal(0),
@@ -106,6 +113,10 @@ def checkout(db: Session, buyer: User, body: s.CheckoutIn) -> list[Order]:
     for ci in cart:
         db.delete(ci)
     db.commit()
+    if not online:  # online orders are announced once the payment succeeds
+        for o in orders:
+            db.refresh(o)
+        notify.order_placed(orders)
     return orders
 
 
@@ -132,13 +143,22 @@ def change_status(db: Session, order: Order, new_status: str, *, as_admin: bool)
             status.HTTP_400_BAD_REQUEST,
             f"Cannot move an order from '{order.status}' to '{new_status}'",
         )
+    if order.status == OrderStatus.AWAITING_PAYMENT and new_status != OrderStatus.CANCELLED:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "This order hasn't been paid yet")
+    refund = False
     if new_status == OrderStatus.CANCELLED:
         _restock(db, order)
         if order.payment_status == PaymentStatus.PAID:
-            order.payment_status = PaymentStatus.REFUNDED
+            if order.payment_method == PaymentMethod.ONLINE:
+                refund = True  # money goes back through Razorpay
+            else:
+                order.payment_status = PaymentStatus.REFUNDED
     if new_status == OrderStatus.DELIVERED and order.payment_method == PaymentMethod.COD:
         order.payment_status = PaymentStatus.PAID
     order.status = new_status
     db.commit()
+    if refund:
+        payments.refund_order(db, order, reason="Order cancelled")
     db.refresh(order)
+    notify.status_changed(order)
     return order

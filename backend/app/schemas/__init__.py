@@ -47,6 +47,16 @@ class RegisterIn(BaseModel):
 class LoginIn(BaseModel):
     email: str = Field(max_length=255)
     password: str = Field(max_length=128)
+    remember: bool = False
+
+
+class ForgotPasswordIn(BaseModel):
+    email: str = Field(max_length=255)
+
+
+class ResetPasswordIn(BaseModel):
+    token: str = Field(min_length=20, max_length=200)
+    password: str = Field(min_length=8, max_length=128)
 
 
 class UserOut(ORM):
@@ -378,7 +388,31 @@ class CheckoutIn(BaseModel):
     shipping_state: str = Field(min_length=2, max_length=80)
     shipping_pincode: str = Field(pattern=r"^\d{6}$")
     notes: str | None = Field(default=None, max_length=500)
-    payment_method: Literal["cod"] = "cod"
+    payment_method: Literal["cod", "online"] = "cod"
+
+
+class PaymentVerifyIn(BaseModel):
+    razorpay_order_id: str = Field(max_length=40)
+    razorpay_payment_id: str = Field(max_length=40)
+    razorpay_signature: str = Field(max_length=128)
+
+
+class PaymentFailedIn(BaseModel):
+    razorpay_order_id: str = Field(max_length=40)
+    reason: str | None = Field(default=None, max_length=300)
+
+
+class PaymentStartOut(BaseModel):
+    key_id: str
+    razorpay_order_id: str
+    amount: int  # paise
+    currency: str
+    checkout_ref: str
+    order_numbers: list[str]
+    name: str
+    email: str
+    contact: str
+    expires_at: str
 
 
 class OrderItemOut(ORM):
@@ -399,6 +433,8 @@ class OrderOut(ORM):
     status: str
     payment_method: str
     payment_status: str
+    refund_id: str | None = None
+    refunded_at: datetime | None = None
     subtotal: Decimal
     total: Decimal
     shipping_name: str
@@ -418,7 +454,7 @@ class OrderOut(ORM):
 
 class OrderStatusIn(BaseModel):
     status: str
-    payment_status: Literal["pending", "paid", "refunded"] | None = None
+    payment_status: Literal["pending", "paid", "refunded"] | None = None  # cash on delivery only
 
 
 # ---------- Contact ----------

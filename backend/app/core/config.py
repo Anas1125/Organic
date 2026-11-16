@@ -18,6 +18,21 @@ class Settings(BaseSettings):
     jwt_secret: str
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60 * 24
+    remember_me_days: int = 30  # "Remember me" on the login page
+
+    # Links in emails point here (the deployed frontend).
+    frontend_url: str = "http://localhost:5173"
+
+    # Email (Resend). Without RESEND_API_KEY, emails are only written to the log.
+    resend_api_key: str | None = None
+    mail_from: str = "Terralens <onboarding@resend.dev>"
+    password_reset_minutes: int = 30
+
+    # Online payments (Razorpay). Without keys, only cash on delivery is offered.
+    razorpay_key_id: str | None = None
+    razorpay_key_secret: str | None = None
+    razorpay_webhook_secret: str | None = None
+    payment_window_minutes: int = 30  # unpaid online orders are cancelled after this
 
     cors_origins: str = "http://localhost:5173"
 

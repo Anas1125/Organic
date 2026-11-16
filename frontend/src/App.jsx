@@ -17,7 +17,7 @@ import SiteSettings from './pages/admin/SiteSettings'
 import Account from './pages/buyer/Account'
 import Cart from './pages/buyer/Cart'
 import { OrderDetail, Orders } from './pages/buyer/Orders'
-import { Login, Register } from './pages/public/Auth'
+import { ForgotPassword, Login, Register, ResetPassword } from './pages/public/Auth'
 import Home from './pages/public/Home'
 import { About, Contact, NotFound } from './pages/public/Info'
 import ProductDetail from './pages/public/ProductDetail'
@@ -69,6 +69,8 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
 
       <Route element={<PublicLayout />}>
         <Route path="/" element={<Home />} />

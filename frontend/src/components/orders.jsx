@@ -1,9 +1,16 @@
-import { Check, Package, X } from 'lucide-react'
+import { Check, Clock, Package, X } from 'lucide-react'
 import { useState } from 'react'
 import { ORDER_STEPS, dateTime, money } from '../lib/format'
 import { StatusBadge } from './ui'
 
 export function OrderTimeline({ status }) {
+  if (status === 'awaiting_payment') {
+    return (
+      <div className="flex items-center gap-2 rounded-xl bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">
+        <Clock className="size-4" /> Waiting for payment — the seller will see this order once it's paid
+      </div>
+    )
+  }
   if (status === 'cancelled') {
     return (
       <div className="flex items-center gap-2 rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
@@ -72,6 +79,17 @@ export function ShippingBlock({ order }) {
   )
 }
 
+const PAY_TEXT = {
+  pending: 'not paid yet', paid: 'paid', failed: 'failed', refund_pending: 'refund in progress',
+  refunded: 'refunded', refund_failed: 'refund failed',
+}
+
+export function paymentLabel(order) {
+  const how = order.payment_method === 'online' ? 'Online' : 'COD'
+  if (order.payment_method === 'cod' && order.payment_status === 'pending') return 'COD · pay on delivery'
+  return `${how} · ${PAY_TEXT[order.payment_status] || order.payment_status}`
+}
+
 export function OrderMeta({ order }) {
   return (
     <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
@@ -79,7 +97,7 @@ export function OrderMeta({ order }) {
       <span>·</span>
       <span>{dateTime(order.created_at)}</span>
       <StatusBadge status={order.status} />
-      <StatusBadge status={order.payment_status} label={`COD · ${order.payment_status}`} />
+      <StatusBadge status={order.payment_status} label={paymentLabel(order)} />
     </div>
   )
 }

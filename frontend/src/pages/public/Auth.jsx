@@ -1,11 +1,12 @@
-import { Building2, ShoppingBasket, Store, User } from 'lucide-react'
+import { Building2, MailCheck, ShoppingBasket, Store, User } from 'lucide-react'
 import { useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { errorMessage } from '../../api/client'
+import api, { errorMessage } from '../../api/client'
 import { Logo } from '../../components/Brand'
 import { Button, ErrorBox, Field, Input, PasswordInput, Textarea } from '../../components/ui'
 import { homeFor, useAuth } from '../../context/AuthContext'
 import { useSite } from '../../context/SiteContext'
+import { useToast } from '../../context/ToastContext'
 
 function AuthShell({ title, subtitle, children }) {
   return (
@@ -36,7 +37,7 @@ export function Login() {
   const { login, user } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const [form, setForm] = useState({ email: '', password: '' })
+  const [form, setForm] = useState({ email: '', password: '', remember: false })
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -47,7 +48,7 @@ export function Login() {
     setBusy(true)
     setError('')
     try {
-      const u = await login(form.email, form.password)
+      const u = await login(form.email, form.password, form.remember)
       const from = location.state?.from
       navigate(from && u.role === 'buyer' ? from : homeFor(u), { replace: true })
     } catch (err) {
@@ -63,11 +64,101 @@ export function Login() {
         <ErrorBox message={error} />
         <Field label="Email"><Input type="email" required autoComplete="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
         <Field label="Password"><PasswordInput required autoComplete="current-password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></Field>
+        <div className="flex items-center justify-between gap-3 text-sm">
+          <label className="flex cursor-pointer items-center gap-2">
+            <input type="checkbox" checked={form.remember} onChange={(e) => setForm({ ...form, remember: e.target.checked })} className="size-4 rounded accent-brand-700" />
+            Remember me
+          </label>
+          <Link to="/forgot-password" className="font-semibold text-brand-700 hover:underline">Forgot password?</Link>
+        </div>
         <Button type="submit" size="lg" className="w-full" loading={busy}>Log in</Button>
       </form>
       <p className="mt-6 text-center text-sm text-muted">
         New to {site.site_name}? <Link to="/register" className="font-semibold text-brand-700 hover:underline">Create an account</Link>
       </p>
+    </AuthShell>
+  )
+}
+
+export function ForgotPassword() {
+  const [email, setEmail] = useState('')
+  const [sent, setSent] = useState('')
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const submit = async (e) => {
+    e.preventDefault()
+    setBusy(true)
+    setError('')
+    try {
+      setSent((await api.post('/auth/forgot-password', { email })).data.detail)
+    } catch (err) {
+      setError(errorMessage(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <AuthShell title="Forgot your password?" subtitle="Enter your email and we'll send you a link to choose a new one.">
+      {sent ? (
+        <div className="space-y-4">
+          <div className="flex gap-3 rounded-2xl bg-brand-50 p-4 text-sm text-brand-900"><MailCheck className="size-5 shrink-0 text-brand-700" /><p>{sent} The link expires in 30 minutes. Check your spam folder too.</p></div>
+          <Button to="/login" variant="outline" size="lg" className="w-full">Back to log in</Button>
+        </div>
+      ) : (
+        <form onSubmit={submit} className="space-y-4">
+          <ErrorBox message={error} />
+          <Field label="Email"><Input type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
+          <Button type="submit" size="lg" className="w-full" loading={busy}>Send reset link</Button>
+          <p className="text-center text-sm text-muted"><Link to="/login" className="font-semibold text-brand-700 hover:underline">Back to log in</Link></p>
+        </form>
+      )}
+    </AuthShell>
+  )
+}
+
+export function ResetPassword() {
+  const [params] = useSearchParams()
+  const token = params.get('token') || ''
+  const toast = useToast()
+  const navigate = useNavigate()
+  const [pw, setPw] = useState({ password: '', confirm: '' })
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const submit = async (e) => {
+    e.preventDefault()
+    if (pw.password !== pw.confirm) return setError('The two passwords don\'t match')
+    setBusy(true)
+    setError('')
+    try {
+      await api.post('/auth/reset-password', { token, password: pw.password })
+      toast.success('Password updated — please log in')
+      navigate('/login', { replace: true })
+    } catch (err) {
+      setError(errorMessage(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <AuthShell title="Choose a new password" subtitle="You'll be logged out on other devices.">
+      {!token ? (
+        <div className="space-y-4 text-sm">
+          <ErrorBox message="This reset link is incomplete. Please request a new one." />
+          <Button to="/forgot-password" size="lg" className="w-full">Request a new link</Button>
+        </div>
+      ) : (
+        <form onSubmit={submit} className="space-y-4">
+          <ErrorBox message={error} />
+          <Field label="New password" hint="At least 8 characters"><PasswordInput required minLength={8} maxLength={128} autoComplete="new-password" value={pw.password} onChange={(e) => setPw({ ...pw, password: e.target.value })} /></Field>
+          <Field label="Confirm new password"><PasswordInput required minLength={8} maxLength={128} autoComplete="new-password" value={pw.confirm} onChange={(e) => setPw({ ...pw, confirm: e.target.value })} /></Field>
+          <Button type="submit" size="lg" className="w-full" loading={busy}>Save new password</Button>
+          {error && /expired|invalid/i.test(error) && <p className="text-center text-sm"><Link to="/forgot-password" className="font-semibold text-brand-700 hover:underline">Request a new link</Link></p>}
+        </form>
+      )}
     </AuthShell>
   )
 }

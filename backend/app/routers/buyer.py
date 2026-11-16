@@ -9,6 +9,7 @@ from app.core.deps import require_buyer
 from app.db import get_db
 from app.models import CartItem, Order, Product, User
 from app.models.enums import OrderStatus
+from app.services import payments
 from app.services import orders as order_service
 from app.services.orders import ORDER_LOAD
 from app.services.pricing import check_quantity, unit_price_for
@@ -146,6 +147,7 @@ def checkout(
 
 @router.get("/orders", response_model=list[s.OrderOut])
 def my_orders(buyer: User = Depends(require_buyer), db: Session = Depends(get_db)):
+    payments.expire_stale(db)
     rows = db.scalars(
         select(Order)
         .where(Order.buyer_id == buyer.id)
@@ -175,6 +177,9 @@ def cancel_order(
     order_id: int, buyer: User = Depends(require_buyer), db: Session = Depends(get_db)
 ):
     o = _own_order(db, buyer, order_id, lock=True)
+    if o.status == OrderStatus.AWAITING_PAYMENT:
+        payments.cancel_unpaid(db, o.checkout_ref, buyer=buyer, why="Cancelled before payment")
+        return order_out(_own_order(db, buyer, order_id))
     if o.status not in (OrderStatus.PENDING, OrderStatus.CONFIRMED):
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST, "This order is already being prepared and can't be cancelled"

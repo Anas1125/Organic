@@ -26,6 +26,7 @@ from app.services.orders import ORDER_LOAD, change_status
 from app.services.pricing import validate_tiers
 from app.services.queries import PRODUCT_LOAD
 from app.services.serializers import cert_out, gi_out, order_out, product_out
+from app.services import payments
 from app.services import product_media as media
 from app.services.storage import get_storage, save_upload
 
@@ -298,7 +299,12 @@ def my_orders(
     db: Session = Depends(get_db),
     status_filter: str | None = Query(None, alias="status"),
 ):
-    stmt = select(Order).where(Order.seller_id == seller.id).options(*ORDER_LOAD)
+    payments.expire_stale(db)
+    stmt = (
+        select(Order)
+        .where(Order.seller_id == seller.id, Order.status != OrderStatus.AWAITING_PAYMENT)
+        .options(*ORDER_LOAD)
+    )
     if status_filter:
         stmt = stmt.where(Order.status == status_filter)
     return [order_out(o) for o in db.scalars(stmt.order_by(Order.created_at.desc()))]
@@ -313,7 +319,7 @@ def my_order(
     o = db.scalar(
         select(Order).where(Order.id == order_id, Order.seller_id == seller.id).options(*ORDER_LOAD)
     )
-    if not o:
+    if not o or o.status == OrderStatus.AWAITING_PAYMENT:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Order not found")
     return order_out(o)
 
@@ -341,11 +347,11 @@ def update_order_status(
 
 @router.get("/stats")
 def my_stats(seller: SellerProfile = Depends(get_current_seller), db: Session = Depends(get_db)):
-    live = Order.status != OrderStatus.CANCELLED
+    live = Order.status.not_in((OrderStatus.CANCELLED, OrderStatus.AWAITING_PAYMENT))
     by_status = dict(
         db.execute(
             select(Order.status, func.count(Order.id))
-            .where(Order.seller_id == seller.id)
+            .where(Order.seller_id == seller.id, Order.status != OrderStatus.AWAITING_PAYMENT)
             .group_by(Order.status)
         ).all()
     )

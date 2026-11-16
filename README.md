@@ -99,3 +99,27 @@ The first admin is the **main admin** (owner). Only the main admin can add or re
 Every admin can change their own login email and password under Admin → My account.
 `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` are used only when no admin exists yet, so changing
 the main admin's email later does not bring the seed account back.
+
+## Login, password reset and emails
+
+- **Remember me** keeps buyers logged in for 30 days; without it the login ends when the browser closes.
+- **Forgot password** emails a one-time link (30 minutes) through Resend. A reset logs the account out everywhere.
+- **Order emails** (Resend): order placed, payment received or failed, confirmed, packed, out for delivery,
+  delivered, cancelled, refund started and completed. Sellers get an email for every new paid order.
+- Set `RESEND_API_KEY` and `FRONTEND_URL`. Until a domain you own is verified in Resend and `MAIL_FROM`
+  uses it, Resend only delivers to your own Resend account email.
+
+## Online payments (Razorpay)
+
+Set `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` (use `rzp_test_…` keys first) and `RAZORPAY_WEBHOOK_SECRET`.
+In the Razorpay dashboard add a webhook to `https://<backend>/api/v1/payments/razorpay/webhook`
+for `payment.captured`, `payment.failed`, `order.paid`, `refund.processed` and `refund.failed`.
+
+- Checkout creates the orders as **awaiting payment** and holds the stock; sellers don't see them yet.
+- **Success:** the payment is verified (signature + a check with Razorpay) and the orders go to the sellers.
+  The webhook does the same if the buyer closes the browser after paying.
+- **Failure:** recorded and emailed; the buyer can **Pay now** again or **Cancel** (items go back in the cart).
+- **Not paid in time** (`PAYMENT_WINDOW_MINUTES`): orders are cancelled and stock released — after checking
+  with Razorpay that no payment went through.
+- **Refunds:** cancelling a paid online order refunds it automatically; admins can also refund (or retry a
+  failed refund) from Admin → Orders. The webhook marks it refunded and the buyer is emailed.

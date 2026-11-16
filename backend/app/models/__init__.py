@@ -55,6 +55,8 @@ class User(TimestampMixin, Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     # The top admin: the only account that can add or remove other admins.
     is_owner: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    # Logins issued before this moment stop working (set when a password is reset).
+    sessions_valid_after: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     seller_profile: Mapped["SellerProfile | None"] = relationship(
         back_populates="user", uselist=False
@@ -246,9 +248,12 @@ class Order(TimestampMixin, Base):
     checkout_ref: Mapped[str] = mapped_column(String(40), index=True)
     buyer_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     seller_id: Mapped[int] = mapped_column(ForeignKey("seller_profiles.id"), index=True)
-    status: Mapped[str] = mapped_column(String(12), default=OrderStatus.PENDING, index=True)
+    status: Mapped[str] = mapped_column(String(20), default=OrderStatus.PENDING, index=True)
     payment_method: Mapped[str] = mapped_column(String(10), default=PaymentMethod.COD)
-    payment_status: Mapped[str] = mapped_column(String(10), default=PaymentStatus.PENDING)
+    payment_status: Mapped[str] = mapped_column(String(20), default=PaymentStatus.PENDING)
+    # Razorpay refund for this order (one payment can cover several sellers' orders).
+    refund_id: Mapped[str | None] = mapped_column(String(40))
+    refunded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     subtotal: Mapped[Decimal] = mapped_column(Money)
     total: Mapped[Decimal] = mapped_column(Money)
     shipping_name: Mapped[str] = mapped_column(String(120))
@@ -332,3 +337,34 @@ class AppMeta(Base):
 
     key: Mapped[str] = mapped_column(String(60), primary_key=True)
     value: Mapped[str] = mapped_column(String(200))
+
+
+class PasswordReset(Base):
+    """One-time 'forgot password' link. Only a hash of the token is stored."""
+
+    __tablename__ = "password_resets"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class Payment(TimestampMixin, Base):
+    """One Razorpay payment for one checkout (which may be split into several orders)."""
+
+    __tablename__ = "payments"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    checkout_ref: Mapped[str] = mapped_column(String(40), index=True)
+    buyer_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    amount: Mapped[Decimal] = mapped_column(Money)
+    currency: Mapped[str] = mapped_column(String(3), default="INR")
+    razorpay_order_id: Mapped[str] = mapped_column(String(40), unique=True)
+    razorpay_payment_id: Mapped[str | None] = mapped_column(String(40), index=True)
+    # created → paid | failed (can be retried) | cancelled | expired
+    status: Mapped[str] = mapped_column(String(12), default="created", index=True)
+    method: Mapped[str | None] = mapped_column(String(20))  # upi, card, netbanking …
+    error: Mapped[str | None] = mapped_column(String(300))

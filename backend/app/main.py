@@ -5,9 +5,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.core.config import settings
-from app.routers import admin, auth, buyer, catalog, documents, media, seller, site
+from app.routers import admin, auth, buyer, catalog, documents, media, payments, seller, site
 
 logger = logging.getLogger("terralens")
+if not logger.handlers:  # show the app's own info messages (e.g. emails in development)
+    _h = logging.StreamHandler()
+    _h.setFormatter(logging.Formatter("%(levelname)s [terralens] %(message)s"))
+    logger.addHandler(_h)
+    logger.setLevel(logging.INFO)
 
 if settings.auto_migrate:
     try:
@@ -41,6 +46,7 @@ for r in (
     documents.router,
     admin.router,
     site.router,
+    payments.router,
 ):
     app.include_router(r, prefix=API)
 

@@ -39,6 +39,7 @@ GI_BADGE_TYPES = ("registered_product", "authorised_user")
 
 
 class OrderStatus(StrEnum):
+    AWAITING_PAYMENT = "awaiting_payment"  # online payment not finished yet; sellers don't see it
     PENDING = "pending"
     CONFIRMED = "confirmed"
     PACKED = "packed"
@@ -49,12 +50,16 @@ class OrderStatus(StrEnum):
 
 class PaymentMethod(StrEnum):
     COD = "cod"
+    ONLINE = "online"  # Razorpay: UPI, cards, netbanking, wallets
 
 
 class PaymentStatus(StrEnum):
     PENDING = "pending"
     PAID = "paid"
+    FAILED = "failed"
+    REFUND_PENDING = "refund_pending"
     REFUNDED = "refunded"
+    REFUND_FAILED = "refund_failed"
 
 
 UNITS = ["kg", "g", "litre", "ml", "packet", "piece", "dozen", "bundle", "box"]

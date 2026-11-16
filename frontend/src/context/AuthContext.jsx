@@ -30,13 +30,14 @@ export function AuthProvider({ children }) {
     return () => window.removeEventListener('auth:expired', onExpired)
   }, [refresh])
 
-  const finish = (data) => {
-    tokenStore.set(data.access_token)
+  const finish = (data, remember = true) => {
+    tokenStore.set(data.access_token, remember)
     setUser(data.user)
     return data.user
   }
 
-  const login = async (email, password) => finish((await api.post('/auth/login', { email, password })).data)
+  const login = async (email, password, remember = false) =>
+    finish((await api.post('/auth/login', { email, password, remember })).data, remember)
   const register = async (body) => finish((await api.post('/auth/register', body)).data)
   const logout = () => {
     tokenStore.set(null)

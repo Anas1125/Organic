@@ -1,4 +1,4 @@
-import { AlertTriangle, ShoppingCart, Store, Trash2, Truck } from 'lucide-react'
+import { AlertTriangle, ShieldCheck, ShoppingCart, Smartphone, Store, Trash2, Truck } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import api, { errorMessage } from '../../api/client'
@@ -8,6 +8,9 @@ import { useAuth } from '../../context/AuthContext'
 import { useCart } from '../../context/CartContext'
 import { useToast } from '../../context/ToastContext'
 import { money } from '../../lib/format'
+import { payOnline } from '../../lib/payments'
+import useFetch from '../../hooks/useFetch'
+import { useSite } from '../../context/SiteContext'
 
 function CartLine({ item, onChange }) {
   const { setCart } = useCart()
@@ -88,6 +91,10 @@ function Checkout({ cart }) {
   })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const { site } = useSite()
+  const { data: payCfg } = useFetch('/payments/config')
+  const [method, setMethod] = useState('online')
+  const online = payCfg?.online_enabled && method === 'online'
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value })
 
   const submit = async (e) => {
@@ -95,10 +102,25 @@ function Checkout({ cart }) {
     setBusy(true)
     setError('')
     try {
-      const { data } = await api.post('/orders/checkout', { ...form, notes: form.notes || null, payment_method: 'cod' })
+      const { data } = await api.post('/orders/checkout', { ...form, notes: form.notes || null, payment_method: online ? 'online' : 'cod' })
       await refresh()
-      toast.success(data.length > 1 ? `${data.length} orders placed — one per seller` : 'Order placed!')
-      navigate('/orders', { state: { placed: data.map((o) => o.order_number) } })
+      const numbers = data.map((o) => o.order_number)
+      if (!online) {
+        toast.success(data.length > 1 ? `${data.length} orders placed — one per seller` : 'Order placed!')
+        return navigate('/orders', { state: { placed: numbers } })
+      }
+      // Orders now wait for payment; stock is held for a short while.
+      try {
+        const res = await payOnline(data[0].checkout_ref, site.site_name)
+        if (res.result === 'paid') {
+          toast.success('Payment successful — order placed!')
+          return navigate('/orders', { state: { placed: numbers, paid: true } })
+        }
+        navigate('/orders', { state: { unpaid: data[0].checkout_ref, failed: res.failed } })
+      } catch (err) {
+        toast.error(err.message || errorMessage(err))
+        navigate('/orders', { state: { unpaid: data[0].checkout_ref } })
+      }
     } catch (err) {
       setError(errorMessage(err))
       refresh()
@@ -122,15 +144,30 @@ function Checkout({ cart }) {
         <Field label="PIN code" className="col-span-2 sm:col-span-1"><Input required inputMode="numeric" pattern="\d{6}" title="6-digit PIN code" value={form.shipping_pincode} onChange={set('shipping_pincode')} autoComplete="postal-code" /></Field>
       </div>
       <Field label="Note for sellers" hint="Optional"><Textarea rows={2} value={form.notes} onChange={set('notes')} /></Field>
-      <div className="flex items-center gap-3 rounded-xl bg-brand-50 p-3 text-sm">
-        <Truck className="size-5 shrink-0 text-brand-700" />
-        <div><strong>Cash on delivery.</strong> Pay each seller when your order arrives.</div>
+      <div>
+        <span className="label">Payment</span>
+        <div className="space-y-2">
+          {payCfg?.online_enabled && (
+            <PayOption active={method === 'online'} onClick={() => setMethod('online')} icon={Smartphone} title="UPI, card or netbanking" text="Pay securely now with Razorpay — GPay, PhonePe, Paytm and more" />
+          )}
+          <PayOption active={!online} onClick={() => setMethod('cod')} icon={Truck} title="Cash on delivery" text="Pay each seller when your order arrives" />
+        </div>
       </div>
       <Button type="submit" size="lg" className="w-full" loading={busy} disabled={!cart.can_checkout}>
-        Place order · {money(cart.total)}
+        {online ? `Pay ${money(cart.total)}` : `Place order · ${money(cart.total)}`}
       </Button>
+      {online && <p className="flex items-center justify-center gap-1.5 text-center text-xs text-muted"><ShieldCheck className="size-3.5" /> Payments are processed by Razorpay. We never see your card or UPI PIN.</p>}
       {!cart.can_checkout && <p className="text-center text-xs text-red-600">Fix the highlighted items in your cart first.</p>}
     </form>
+  )
+}
+
+function PayOption({ active, onClick, icon: Icon, title, text }) {
+  return (
+    <button type="button" onClick={onClick} aria-pressed={active} className={`flex w-full items-start gap-3 rounded-xl border-2 p-3 text-left text-sm transition ${active ? 'border-brand-700 bg-brand-50' : 'border-line bg-white hover:border-brand-300'}`}>
+      <Icon className={`mt-0.5 size-5 shrink-0 ${active ? 'text-brand-700' : 'text-muted'}`} />
+      <span><span className="block font-semibold">{title}</span><span className="text-xs text-muted">{text}</span></span>
+    </button>
   )
 }
 

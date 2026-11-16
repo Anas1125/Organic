@@ -21,7 +21,8 @@ from app.models import (
     SellerProfile,
     User,
 )
-from app.models.enums import GIVerification, OrderStatus, ReviewStatus, Role
+from app.models.enums import GIVerification, OrderStatus, PaymentMethod, PaymentStatus, ReviewStatus, Role
+from app.services import payments
 from app.services import product_media as media
 from app.services.orders import ORDER_LOAD, change_status
 from app.services.queries import PRODUCT_LOAD
@@ -49,7 +50,7 @@ def stats(db: Session = Depends(get_db)):
     def count(model, *where):
         return db.scalar(select(func.count()).select_from(model).where(*where))
 
-    live = Order.status != OrderStatus.CANCELLED
+    live = Order.status.not_in((OrderStatus.CANCELLED, OrderStatus.AWAITING_PAYMENT))
     return {
         "buyers": count(User, User.role == Role.BUYER),
         "sellers": count(SellerProfile),
@@ -136,6 +137,7 @@ def set_user_password(
     if user.id == owner.id:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Change your own password under My account")
     user.password_hash = hash_password(body.password)
+    user.sessions_valid_after = datetime.now(UTC).replace(microsecond=0)  # log them out everywhere
     db.commit()
 
 
@@ -500,6 +502,7 @@ def orders(
     status_filter: str | None = Query(None, alias="status"),
     q: str | None = Query(None, max_length=50),
 ):
+    payments.expire_stale(db)
     stmt = select(Order).options(*ORDER_LOAD)
     if status_filter:
         stmt = stmt.where(Order.status == status_filter)
@@ -516,10 +519,26 @@ def set_order_status(order_id: int, body: s.OrderStatusIn, db: Session = Depends
     if not o:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Order not found")
     o = change_status(db, o, body.status, as_admin=True)
-    if body.payment_status and body.payment_status != o.payment_status:
+    # Online payments are tracked by Razorpay; only cash-on-delivery can be set by hand.
+    if body.payment_status and body.payment_status != o.payment_status and o.payment_method == PaymentMethod.COD:
         o.payment_status = body.payment_status
         db.commit()
         db.refresh(o)
+    return order_out(o)
+
+
+@router.post("/orders/{order_id}/refund", response_model=s.OrderOut)
+def refund_order(order_id: int, db: Session = Depends(get_db)):
+    """Refund a paid online order in full (e.g. a return), or retry a refund that failed."""
+    o = db.scalar(select(Order).where(Order.id == order_id).options(*ORDER_LOAD))
+    if not o:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Order not found")
+    if o.payment_method != PaymentMethod.ONLINE or o.payment_status not in (
+        PaymentStatus.PAID, PaymentStatus.REFUND_FAILED,
+    ):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Only paid online orders can be refunded here")
+    payments.refund_order(db, o, reason="Refunded by admin")
+    db.refresh(o)
     return order_out(o)
 
 
