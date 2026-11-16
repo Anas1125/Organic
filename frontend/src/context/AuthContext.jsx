@@ -54,4 +54,4 @@ export function AuthProvider({ children }) {
 export const useAuth = () => useContext(AuthContext)
 
 export const homeFor = (user) =>
-  ({ admin: '/admin', seller: '/seller', buyer: '/shop' })[user?.role] || '/'
+  ({ admin: '/admin', seller: '/seller', buyer: '/' })[user?.role] || '/'

@@ -38,6 +38,24 @@
   :focus-visible {
     @apply outline-2 outline-offset-2 outline-brand-600;
   }
+  /* Tailwind v4 gives buttons the default arrow; show a hand on everything clickable. */
+  button,
+  [role='button'],
+  select,
+  summary,
+  label:has(> input[type='checkbox']),
+  label:has(> input[type='radio']),
+  label:has(> input[type='file']),
+  input[type='checkbox'],
+  input[type='radio'] {
+    cursor: pointer;
+  }
+  button:disabled,
+  [aria-disabled='true'],
+  select:disabled,
+  input:disabled {
+    cursor: not-allowed;
+  }
 }
 
 @layer components {

@@ -391,6 +391,29 @@ class CheckoutIn(BaseModel):
     payment_method: Literal["cod", "online"] = "cod"
 
 
+class AddressIn(BaseModel):
+    label: str | None = Field(default=None, max_length=40)
+    shipping_name: str = Field(min_length=2, max_length=120)
+    shipping_phone: str = Field(pattern=r"^[0-9+\- ]{7,20}$")
+    shipping_address: str = Field(min_length=5, max_length=255)
+    shipping_city: str = Field(min_length=2, max_length=80)
+    shipping_state: str = Field(min_length=2, max_length=80)
+    shipping_pincode: str = Field(pattern=r"^\d{6}$")
+    is_default: bool = False
+
+
+class AddressOut(ORM):
+    id: int
+    label: str | None
+    shipping_name: str
+    shipping_phone: str
+    shipping_address: str
+    shipping_city: str
+    shipping_state: str
+    shipping_pincode: str
+    is_default: bool
+
+
 class PaymentVerifyIn(BaseModel):
     razorpay_order_id: str = Field(max_length=40)
     razorpay_payment_id: str = Field(max_length=40)

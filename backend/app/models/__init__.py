@@ -369,3 +369,21 @@ class Payment(TimestampMixin, Base):
     status: Mapped[str] = mapped_column(String(12), default="created", index=True)
     method: Mapped[str | None] = mapped_column(String(20))  # upi, card, netbanking …
     error: Mapped[str | None] = mapped_column(String(300))
+
+
+class Address(Base):
+    """A buyer's saved delivery address, offered at checkout."""
+
+    __tablename__ = "addresses"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    label: Mapped[str | None] = mapped_column(String(40))  # e.g. "Shop", "Warehouse"
+    shipping_name: Mapped[str] = mapped_column(String(120))
+    shipping_phone: Mapped[str] = mapped_column(String(20))
+    shipping_address: Mapped[str] = mapped_column(String(255))
+    shipping_city: Mapped[str] = mapped_column(String(80))
+    shipping_state: Mapped[str] = mapped_column(String(80))
+    shipping_pincode: Mapped[str] = mapped_column(String(10))
+    is_default: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

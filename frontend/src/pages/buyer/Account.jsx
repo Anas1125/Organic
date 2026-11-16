@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { AddressBook } from '../../components/addresses'
+import useFetch from '../../hooks/useFetch'
 import api, { errorMessage } from '../../api/client'
 import { Button, Field, Input, PasswordInput, Select } from '../../components/ui'
 import { useAuth } from '../../context/AuthContext'
@@ -81,10 +83,12 @@ export function AccountForm() {
 }
 
 export default function Account() {
+  const { data: addresses, reload } = useFetch('/addresses')
   return (
-    <div className="container-page max-w-4xl py-6 sm:py-8">
-      <h1 className="mb-6 text-2xl font-bold sm:text-3xl">My profile</h1>
+    <div className="container-page max-w-4xl space-y-6 py-6 sm:py-8">
+      <h1 className="text-2xl font-bold sm:text-3xl">My profile</h1>
       <AccountForm />
+      {addresses && <AddressBook addresses={addresses} onChange={reload} />}
     </div>
   )
 }

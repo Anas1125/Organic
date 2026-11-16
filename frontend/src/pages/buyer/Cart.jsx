@@ -1,7 +1,8 @@
-import { AlertTriangle, ShieldCheck, ShoppingCart, Smartphone, Store, Trash2, Truck } from 'lucide-react'
+import { AlertTriangle, Plus, ShieldCheck, ShoppingCart, Smartphone, Store, Trash2, Truck } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import api, { errorMessage } from '../../api/client'
+import { AddressFields, AddressOption, EMPTY_ADDRESS, pickAddress } from '../../components/addresses'
 import { ProductImage, QuantityStepper } from '../../components/product'
 import { Button, EmptyState, ErrorBox, Field, Input, Spinner, Textarea } from '../../components/ui'
 import { useAuth } from '../../context/AuthContext'
@@ -85,24 +86,35 @@ function Checkout({ cart }) {
   useEffect(() => {
     if (state?.checkout) formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }, [state])
-  const [form, setForm] = useState({
-    shipping_name: user.full_name, shipping_phone: user.phone || '', shipping_address: '',
-    shipping_city: '', shipping_state: '', shipping_pincode: '', notes: '',
-  })
+  const { data: saved } = useFetch('/addresses')
+  // Selected saved address id, or 'new' to type one in.
+  const [choice, setChoice] = useState(null)
+  const [form, setForm] = useState({ ...EMPTY_ADDRESS, shipping_name: user.full_name, shipping_phone: user.phone || '' })
+  const [notes, setNotes] = useState('')
+  const [saveNew, setSaveNew] = useState(true)
+  useEffect(() => {
+    if (saved && choice === null) setChoice(saved.length ? saved.find((a) => a.is_default)?.id ?? saved[0].id : 'new')
+  }, [saved, choice])
+  const chosen = saved?.find((a) => a.id === choice)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const { site } = useSite()
   const { data: payCfg } = useFetch('/payments/config')
   const [method, setMethod] = useState('online')
   const online = payCfg?.online_enabled && method === 'online'
-  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value })
 
   const submit = async (e) => {
     e.preventDefault()
     setBusy(true)
     setError('')
+    const address = pickAddress(chosen || form)
+    delete address.label
     try {
-      const { data } = await api.post('/orders/checkout', { ...form, notes: form.notes || null, payment_method: online ? 'online' : 'cod' })
+      if (!chosen && saveNew) {
+        // Remember it for next time; a failure here shouldn't stop the order.
+        await api.post('/addresses', { ...pickAddress(form), is_default: !saved?.length }).catch(() => {})
+      }
+      const { data } = await api.post('/orders/checkout', { ...address, notes: notes || null, payment_method: online ? 'online' : 'cod' })
       await refresh()
       const numbers = data.map((o) => o.order_number)
       if (!online) {
@@ -133,17 +145,24 @@ function Checkout({ cart }) {
     <form ref={formRef} onSubmit={submit} className="card scroll-mt-24 space-y-4 p-5 sm:p-6">
       <h2 className="text-lg font-bold">Delivery details</h2>
       <ErrorBox message={error} />
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Full name"><Input required minLength={2} value={form.shipping_name} onChange={set('shipping_name')} autoComplete="name" /></Field>
-        <Field label="Phone"><Input required type="tel" pattern="[0-9+\- ]{7,20}" value={form.shipping_phone} onChange={set('shipping_phone')} autoComplete="tel" /></Field>
-      </div>
-      <Field label="Address"><Input required minLength={5} value={form.shipping_address} onChange={set('shipping_address')} autoComplete="street-address" /></Field>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <Field label="City"><Input required value={form.shipping_city} onChange={set('shipping_city')} autoComplete="address-level2" /></Field>
-        <Field label="State"><Input required value={form.shipping_state} onChange={set('shipping_state')} autoComplete="address-level1" /></Field>
-        <Field label="PIN code" className="col-span-2 sm:col-span-1"><Input required inputMode="numeric" pattern="\d{6}" title="6-digit PIN code" value={form.shipping_pincode} onChange={set('shipping_pincode')} autoComplete="postal-code" /></Field>
-      </div>
-      <Field label="Note for sellers" hint="Optional"><Textarea rows={2} value={form.notes} onChange={set('notes')} /></Field>
+      {saved?.length > 0 && (
+        <div className="space-y-2">
+          {saved.map((a) => <AddressOption key={a.id} a={a} active={choice === a.id} onClick={() => setChoice(a.id)} />)}
+          <button type="button" onClick={() => setChoice('new')} aria-pressed={choice === 'new'} className={`flex w-full items-center gap-2 rounded-xl border-2 border-dashed p-3 text-sm font-semibold transition ${choice === 'new' ? 'border-brand-700 bg-brand-50 text-brand-800' : 'border-line text-brand-700 hover:border-brand-300'}`}>
+            <Plus className="size-4" /> Deliver to a new address
+          </button>
+        </div>
+      )}
+      {choice === 'new' && (
+        <>
+          <AddressFields value={form} onChange={setForm} />
+          <label className="flex cursor-pointer items-center gap-2 text-sm">
+            <input type="checkbox" checked={saveNew} onChange={(e) => setSaveNew(e.target.checked)} className="size-4 rounded accent-brand-700" />
+            Save this address for next time
+          </label>
+        </>
+      )}
+      <Field label="Note for sellers" hint="Optional"><Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} /></Field>
       <div>
         <span className="label">Payment</span>
         <div className="space-y-2">
@@ -153,7 +172,7 @@ function Checkout({ cart }) {
           <PayOption active={!online} onClick={() => setMethod('cod')} icon={Truck} title="Cash on delivery" text="Pay each seller when your order arrives" />
         </div>
       </div>
-      <Button type="submit" size="lg" className="w-full" loading={busy} disabled={!cart.can_checkout}>
+      <Button type="submit" size="lg" className="w-full" loading={busy} disabled={!cart.can_checkout || choice === null}>
         {online ? `Pay ${money(cart.total)}` : `Place order · ${money(cart.total)}`}
       </Button>
       {online && <p className="flex items-center justify-center gap-1.5 text-center text-xs text-muted"><ShieldCheck className="size-3.5" /> Payments are processed by Razorpay. We never see your card or UPI PIN.</p>}

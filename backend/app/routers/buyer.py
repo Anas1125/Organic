@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, selectinload
 from app import schemas as s
 from app.core.deps import require_buyer
 from app.db import get_db
-from app.models import CartItem, Order, Product, User
+from app.models import Address, CartItem, Order, Product, User
 from app.models.enums import OrderStatus
 from app.services import payments
 from app.services import orders as order_service
@@ -185,3 +185,81 @@ def cancel_order(
             status.HTTP_400_BAD_REQUEST, "This order is already being prepared and can't be cancelled"
         )
     return order_out(order_service.change_status(db, o, OrderStatus.CANCELLED, as_admin=True))
+
+
+# ---------- Saved addresses ----------
+
+MAX_ADDRESSES = 10
+ADDRESS_FIELDS = ("shipping_name", "shipping_phone", "shipping_address", "shipping_city", "shipping_state", "shipping_pincode")
+
+
+def _addresses(db: Session, buyer: User) -> list[Address]:
+    return list(db.scalars(
+        select(Address).where(Address.user_id == buyer.id).order_by(Address.is_default.desc(), Address.id.desc())
+    ))
+
+
+def _make_default(db: Session, buyer: User, address: Address) -> None:
+    for a in _addresses(db, buyer):
+        a.is_default = a.id == address.id
+
+
+@router.get("/addresses", response_model=list[s.AddressOut])
+def list_addresses(buyer: User = Depends(require_buyer), db: Session = Depends(get_db)):
+    return _addresses(db, buyer)
+
+
+@router.post("/addresses", response_model=s.AddressOut, status_code=201)
+def add_address(body: s.AddressIn, buyer: User = Depends(require_buyer), db: Session = Depends(get_db)):
+    existing = _addresses(db, buyer)
+    data = {k: (v.strip() if isinstance(v, str) else v) for k, v in body.model_dump().items()}
+    # Saving the same address again just returns it (e.g. "save for next time" at every checkout).
+    for a in existing:
+        if all(getattr(a, f).lower() == data[f].lower() for f in ADDRESS_FIELDS):
+            if body.is_default:
+                _make_default(db, buyer, a)
+                db.commit()
+            return a
+    if len(existing) >= MAX_ADDRESSES:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"You can save up to {MAX_ADDRESSES} addresses")
+    a = Address(user_id=buyer.id, **{**data, "label": data["label"] or None, "is_default": False})
+    db.add(a)
+    db.flush()
+    if body.is_default or not existing:  # the first address is the default
+        _make_default(db, buyer, a)
+    db.commit()
+    db.refresh(a)
+    return a
+
+
+def _own_address(db: Session, buyer: User, address_id: int) -> Address:
+    a = db.get(Address, address_id)
+    if not a or a.user_id != buyer.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Address not found")
+    return a
+
+
+@router.put("/addresses/{address_id}", response_model=s.AddressOut)
+def update_address(address_id: int, body: s.AddressIn, buyer: User = Depends(require_buyer), db: Session = Depends(get_db)):
+    a = _own_address(db, buyer, address_id)
+    for k, v in body.model_dump(exclude={"is_default", "label"}).items():
+        setattr(a, k, v.strip())
+    a.label = (body.label or "").strip() or None
+    if body.is_default:
+        _make_default(db, buyer, a)
+    db.commit()
+    db.refresh(a)
+    return a
+
+
+@router.delete("/addresses/{address_id}", status_code=204)
+def delete_address(address_id: int, buyer: User = Depends(require_buyer), db: Session = Depends(get_db)):
+    a = _own_address(db, buyer, address_id)
+    was_default = a.is_default
+    db.delete(a)
+    db.flush()
+    if was_default:  # promote the newest remaining address
+        rest = _addresses(db, buyer)
+        if rest:
+            _make_default(db, buyer, rest[0])
+    db.commit()
