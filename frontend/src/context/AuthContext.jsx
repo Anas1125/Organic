@@ -36,16 +36,27 @@ export function AuthProvider({ children }) {
     return data.user
   }
 
+  // Login / sign-up either log straight in, or return { otp: {...} } when an emailed
+  // code is needed first — the page then shows the code screen and calls verifyOtp.
+  const deviceKey = 'terralens_device'
+  const deviceToken = () => { try { return localStorage.getItem(deviceKey) } catch { return null } }
+  const settle = (data, remember) => (data.otp_required ? { otp: { ...data, remember } } : { user: finish(data, remember) })
   const login = async (email, password, remember = false) =>
-    finish((await api.post('/auth/login', { email, password, remember })).data, remember)
-  const register = async (body) => finish((await api.post('/auth/register', body)).data)
+    settle((await api.post('/auth/login', { email, password, remember, device_token: deviceToken() })).data, remember)
+  const register = async (body) => settle((await api.post('/auth/register', body)).data, true)
+  const verifyOtp = async (challenge, code, remember) => {
+    const { data } = await api.post('/auth/verify-otp', { challenge, code, remember })
+    if (data.device_token) { try { localStorage.setItem(deviceKey, data.device_token) } catch { /* private mode */ } }
+    return finish(data, remember)
+  }
+  const resendOtp = async (challenge) => (await api.post('/auth/resend-otp', { challenge })).data
   const logout = () => {
     tokenStore.set(null)
     setUser(null)
   }
 
   return (
-    <AuthContext.Provider value={{ user, setUser, ready, login, register, logout, refresh }}>
+    <AuthContext.Provider value={{ user, setUser, ready, login, register, verifyOtp, resendOtp, logout, refresh }}>
       {children}
     </AuthContext.Provider>
   )

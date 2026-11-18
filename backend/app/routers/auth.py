@@ -12,6 +12,7 @@ from app.core.deps import get_current_user
 from app.core.security import create_access_token, hash_password, verify_password
 from app.db import get_db
 from app.models import PasswordReset, SellerProfile, User
+from app.services import otp
 from app.services.mailer import esc, send_email
 from app.models.enums import Role
 from app.services.serializers import user_out
@@ -19,7 +20,7 @@ from app.services.serializers import user_out
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
 
-@router.post("/register", response_model=s.TokenOut, status_code=201)
+@router.post("/register", response_model=s.AuthOut, status_code=201)
 def register(body: s.RegisterIn, db: Session = Depends(get_db)):
     email = body.email.lower()
     if db.query(User).filter_by(email=email).first():
@@ -37,24 +38,47 @@ def register(body: s.RegisterIn, db: Session = Depends(get_db)):
         role=body.role,
         buyer_type=body.buyer_type if body.role == Role.BUYER else "individual",
     )
+    user.email_verified = not otp.needed(user, "signup")
     db.add(user)
     db.flush()
     if body.role == Role.SELLER:
         db.add(SellerProfile(user_id=user.id, phone=body.phone, **body.seller.model_dump()))
     db.commit()
     db.refresh(user)
-    return s.TokenOut(access_token=create_access_token(user.id, user.role), user=user_out(user))
+    if not user.email_verified:  # confirm the email before the first login
+        return s.AuthOut(**otp.start(db, user, "signup"))
+    return s.AuthOut(access_token=create_access_token(user.id, user.role), user=user_out(user))
 
 
-@router.post("/login", response_model=s.TokenOut)
+@router.post("/login", response_model=s.AuthOut)
 def login(body: s.LoginIn, db: Session = Depends(get_db)):
     user = db.query(User).filter_by(email=body.email.lower()).first()
     if not user or not verify_password(body.password, user.password_hash):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Incorrect email or password")
     if not user.is_active:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "This account has been deactivated")
+    # New device (or an email never confirmed): ask for the emailed code first.
+    if not user.email_verified and otp.needed(user, "signup"):
+        return s.AuthOut(**otp.start(db, user, "signup"))
+    if otp.needed(user, "login") and not otp.trusted(db, user, body.device_token):
+        return s.AuthOut(**otp.start(db, user, "login"))
     token = create_access_token(user.id, user.role, remember=body.remember)
-    return s.TokenOut(access_token=token, user=user_out(user))
+    return s.AuthOut(access_token=token, user=user_out(user))
+
+
+@router.post("/verify-otp", response_model=s.AuthOut)
+def verify_otp(body: s.OtpVerifyIn, db: Session = Depends(get_db)):
+    user = otp.verify(db, body.challenge, body.code)
+    return s.AuthOut(
+        access_token=create_access_token(user.id, user.role, remember=body.remember),
+        user=user_out(user),
+        device_token=otp.trust(db, user) if body.remember else None,
+    )
+
+
+@router.post("/resend-otp", response_model=s.AuthOut)
+def resend_otp(body: s.OtpResendIn, db: Session = Depends(get_db)):
+    return s.AuthOut(**otp.resend(db, body.challenge))
 
 
 @router.get("/me", response_model=s.UserOut)

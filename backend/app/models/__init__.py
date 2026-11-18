@@ -55,6 +55,8 @@ class User(TimestampMixin, Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     # The top admin: the only account that can add or remove other admins.
     is_owner: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    # Existing accounts count as verified; new sign-ups confirm with an emailed code.
+    email_verified: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
     # Logins issued before this moment stop working (set when a password is reset).
     sessions_valid_after: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
@@ -391,4 +393,31 @@ class Address(Base):
     shipping_state: Mapped[str] = mapped_column(String(80))
     shipping_pincode: Mapped[str] = mapped_column(String(10))
     is_default: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class OtpCode(Base):
+    """A 6-digit code emailed for sign-up or login. Only a hash is stored."""
+
+    __tablename__ = "otp_codes"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    purpose: Mapped[str] = mapped_column(String(10))  # signup | login
+    code_hash: Mapped[str] = mapped_column(String(64))
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class TrustedDevice(Base):
+    """A browser that passed an OTP with "Remember me" — no code needed there for 30 days."""
+
+    __tablename__ = "trusted_devices"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

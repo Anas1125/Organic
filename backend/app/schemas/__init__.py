@@ -48,6 +48,7 @@ class LoginIn(BaseModel):
     email: str = Field(max_length=255)
     password: str = Field(max_length=128)
     remember: bool = False
+    device_token: str | None = Field(default=None, max_length=200)
 
 
 class ForgotPasswordIn(BaseModel):
@@ -77,6 +78,28 @@ class TokenOut(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: UserOut
+
+
+class AuthOut(BaseModel):
+    """Either a login (access_token + user) or a request to enter the emailed code."""
+
+    access_token: str | None = None
+    token_type: str = "bearer"
+    user: UserOut | None = None
+    otp_required: bool = False
+    challenge: str | None = None  # pass back with the code
+    email_hint: str | None = None  # e.g. "ar•••@gmail.com"
+    device_token: str | None = None  # "Remember me": skips the code on this browser next time
+
+
+class OtpVerifyIn(BaseModel):
+    challenge: str = Field(max_length=1000)
+    code: str = Field(pattern=r"^\d{6}$")
+    remember: bool = False
+
+
+class OtpResendIn(BaseModel):
+    challenge: str = Field(max_length=1000)
 
 
 class UserUpdate(BaseModel):

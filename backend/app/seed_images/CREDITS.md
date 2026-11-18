@@ -104,13 +104,10 @@ Licences: CC0 / public domain need no credit; CC BY and CC BY-SA require the cre
 | dindigul-lock-2.webp | [... antique lock with set of keys (exhibit) at Mehrangarh (31746266328).jpg](https://commons.wikimedia.org/wiki/File:..._antique_lock_with_set_of_keys_(exhibit)_at_Mehrangarh_(31746266328).jpg) | Dinesh Valke from Thane, India | CC BY-SA 2.0 |
 | dindigul-lock.webp | [Antique Padlocks - Treasures in the Wall Museum - Akko (Acre) - Israel.jpg](https://commons.wikimedia.org/wiki/File:Antique_Padlocks_-_Treasures_in_the_Wall_Museum_-_Akko_(Acre)_-_Israel.jpg) | Adam Jones from Kelowna, BC, Canada | CC BY-SA 2.0 |
 | jaderi-namakatti.webp | [Thenkalai Sri Vaishnava urdhva pundram.jpg](https://commons.wikimedia.org/wiki/File:Thenkalai_Sri_Vaishnava_urdhva_pundram.jpg) | Debanjon | CC BY-SA 4.0 |
-| kallakurichi-wood.webp | [Wood carving detail2 - Vishnu Mohini.jpg](https://commons.wikimedia.org/wiki/File:Wood_carving_detail2_-_Vishnu_Mohini.jpg) | Balaji Srinivasan | CC BY-SA 2.0 |
 | kovai-kora-2.webp | [Celebrating the artistry and tradition of handmade elegance each stitch in a handicraft saree tells a story of skill, heritage, and timeless beauty.jpg](https://commons.wikimedia.org/wiki/File:Celebrating_the_artistry_and_tradition_of_handmade_elegance_each_stitch_in_a_handicraft_saree_tells_a_story_of_skill,_heritage,_and_timeless_beauty.jpg) | Manishontop02 | CC BY-SA 4.0 |
 | kovai-kora.webp | [Bengal saris on display.jpg](https://commons.wikimedia.org/wiki/File:Bengal_saris_on_display.jpg) | Giridhar Appaji Nag Y | CC BY 2.0 |
 | mahabalipuram-sculpture-2.webp | [Men carving stone idols or murti. Mahabalipuram. 2010.jpg](https://commons.wikimedia.org/wiki/File:Men_carving_stone_idols_or_murti._Mahabalipuram._2010.jpg) | John Hill | CC BY-SA 4.0 |
 | mahabalipuram-sculpture.webp | [Mamallapuram Art Sculpture Shops.JPG](https://commons.wikimedia.org/wiki/File:Mamallapuram_Art_Sculpture_Shops.JPG) | KARTY JazZ | CC BY-SA 4.0 |
-| myladi-stone-2.webp | [WLA haa Vishnu Tamil Nadu Pallava dynasty.jpg](https://commons.wikimedia.org/wiki/File:WLA_haa_Vishnu_Tamil_Nadu_Pallava_dynasty.jpg) | Hiart | CC0 |
-| myladi-stone.webp | [Stone Nataraja Sculpture, Kailasanathar Temple,Tharamangalam, Salem, Tamil Nadu.jpg](https://commons.wikimedia.org/wiki/File:Stone_Nataraja_Sculpture,_Kailasanathar_Temple,Tharamangalam,_Salem,_Tamil_Nadu.jpg) | SpeakingArch | CC BY-SA 4.0 |
 | nagercoil-temple-jewellery-2.webp | [Temple Jewellery Modern Designs.jpg](https://commons.wikimedia.org/wiki/File:Temple_Jewellery_Modern_Designs.jpg) | Ambika8585 | CC BY-SA 4.0 |
 | nagercoil-temple-jewellery.webp | [Temple jewellery Bangle.png](https://commons.wikimedia.org/wiki/File:Temple_jewellery_Bangle.png) | Sivakumarindia | CC0 |
 | namakkal-soapstone.webp | [Soapstone pot.jpg](https://commons.wikimedia.org/wiki/File:Soapstone_pot.jpg) | Lysippos | CC BY-SA 3.0 |
@@ -132,6 +129,9 @@ Licences: CC0 / public domain need no credit; CC BY and CC BY-SA require the cre
 | thanjavur-netti.webp | [Craft sholapith.jpg](https://commons.wikimedia.org/wiki/File:Craft_sholapith.jpg) | Iamjfcal | CC BY-SA 4.0 |
 | thovalai-garland-2.webp | [Marigold Flowers as garland.jpg](https://commons.wikimedia.org/wiki/File:Marigold_Flowers_as_garland.jpg) | SnapMeUp | CC BY 4.0 |
 | thovalai-garland.webp | [Marigold garlands.jpg](https://commons.wikimedia.org/wiki/File:Marigold_garlands.jpg) | পাপৰি বৰা | CC BY-SA 4.0 |
+| kallakurichi-wood.webp | [Carved wooden door at Devi Talab Mandir, Jalandhar 01.jpg](https://commons.wikimedia.org/wiki/File:Carved_wooden_door_at_Devi_Talab_Mandir,_Jalandhar_01.jpg) | Poojilsharma07 | CC BY-SA 4.0 |
+| myladi-stone-2.webp | [Stone Carving On the Wall of Hayagriva Madhava Temple.jpg](https://commons.wikimedia.org/wiki/File:Stone_Carving_On_the_Wall_of_Hayagriva_Madhava_Temple.jpg) | Jyotishmita Bhagawati | CC BY-SA 4.0 |
+| myladi-stone.webp | [Hampi elephant carving on stone.jpg](https://commons.wikimedia.org/wiki/File:Hampi_elephant_carving_on_stone.jpg) | Pravin vinod | CC BY-SA 4.0 |
 
 ## Videos (streamed from Wikimedia Commons)
 

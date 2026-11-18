@@ -26,6 +26,16 @@ class Settings(BaseSettings):
     # Email (Resend). Without RESEND_API_KEY, emails are only written to the log.
     resend_api_key: str | None = None
     mail_from: str = "Terralens <onboarding@resend.dev>"
+    # Or send through any SMTP server — e.g. Gmail with an app password (free, ~500/day).
+    smtp_host: str | None = None
+    smtp_port: int = 465
+    smtp_user: str | None = None
+    smtp_password: str | None = None
+
+    # One-time codes by email. Only active when email sending is set up.
+    otp_on_signup: bool = True
+    otp_on_login: bool = True  # new devices only; "Remember me" trusts a device for 30 days
+    otp_exempt_domains: str = "example.com"  # demo accounts whose inboxes don't exist
     password_reset_minutes: int = 30
 
     # Online payments (Razorpay). Without keys, only cash on delivery is offered.

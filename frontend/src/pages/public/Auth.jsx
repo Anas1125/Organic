@@ -1,5 +1,5 @@
 import { Building2, MailCheck, ShoppingBasket, Store, User } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import api, { errorMessage } from '../../api/client'
 import { Logo } from '../../components/Brand'
@@ -38,6 +38,7 @@ export function Login() {
   const navigate = useNavigate()
   const location = useLocation()
   const [form, setForm] = useState({ email: '', password: '', remember: false })
+  const [otp, setOtp] = useState(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -48,7 +49,9 @@ export function Login() {
     setBusy(true)
     setError('')
     try {
-      const u = await login(form.email, form.password, form.remember)
+      const res = await login(form.email, form.password, form.remember)
+      if (res.otp) return setOtp(res.otp)
+      const u = res.user
       const from = location.state?.from
       navigate(from && u.role === 'buyer' ? from : homeFor(u), { replace: true })
     } catch (err) {
@@ -56,6 +59,17 @@ export function Login() {
     } finally {
       setBusy(false)
     }
+  }
+
+  if (otp) {
+    return (
+      <AuthShell title="Check your email" subtitle="Enter the 6-digit code we sent to confirm it's you.">
+        <OtpStep otp={otp} onBack={() => setOtp(null)} onDone={(u) => {
+          const from = location.state?.from
+          navigate(from && u.role === 'buyer' ? from : homeFor(u), { replace: true })
+        }} />
+      </AuthShell>
+    )
   }
 
   return (
@@ -77,6 +91,80 @@ export function Login() {
         New to {site.site_name}? <Link to="/register" className="font-semibold text-brand-700 hover:underline">Create an account</Link>
       </p>
     </AuthShell>
+  )
+}
+
+/** The 6-digit code screen shared by login and sign-up. */
+function OtpStep({ otp, onDone, onBack }) {
+  const { verifyOtp, resendOtp } = useAuth()
+  const [current, setCurrent] = useState(otp)
+  const [code, setCode] = useState('')
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [wait, setWait] = useState(45)
+  const [sent, setSent] = useState('')
+
+  useEffect(() => {
+    if (wait <= 0) return undefined
+    const t = setTimeout(() => setWait(wait - 1), 1000)
+    return () => clearTimeout(t)
+  }, [wait])
+
+  const submit = async (e) => {
+    e?.preventDefault()
+    if (code.length !== 6) return
+    setBusy(true)
+    setError('')
+    try {
+      onDone(await verifyOtp(current.challenge, code, current.remember))
+    } catch (err) {
+      setError(errorMessage(err))
+      setCode('')
+    } finally {
+      setBusy(false)
+    }
+  }
+  const resend = async () => {
+    setError('')
+    try {
+      const data = await resendOtp(current.challenge)
+      setCurrent({ ...current, ...data })
+      setSent('A new code is on its way.')
+      setWait(45)
+    } catch (err) {
+      setError(errorMessage(err))
+    }
+  }
+
+  return (
+    <form onSubmit={submit} className="space-y-5">
+      <div className="flex gap-3 rounded-2xl bg-brand-50 p-4 text-sm text-brand-900">
+        <MailCheck className="size-5 shrink-0 text-brand-700" />
+        <p>We sent a 6-digit code to <strong>{current.email_hint}</strong>. It expires in 10 minutes — check spam if you don't see it.</p>
+      </div>
+      <ErrorBox message={error} />
+      <Field label="Verification code">
+        <input
+          className="input h-14 text-center font-mono text-2xl tracking-[0.5em]"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          pattern="\d{6}"
+          maxLength={6}
+          autoFocus
+          value={code}
+          onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+          aria-label="6-digit code"
+        />
+      </Field>
+      <Button type="submit" size="lg" className="w-full" loading={busy} disabled={code.length !== 6}>Verify and continue</Button>
+      <div className="flex items-center justify-between text-sm">
+        <button type="button" onClick={onBack} className="font-medium text-muted hover:text-ink">← Back</button>
+        {wait > 0
+          ? <span className="text-muted">Resend code in {wait}s</span>
+          : <button type="button" onClick={resend} className="font-semibold text-brand-700 hover:underline">Resend code</button>}
+      </div>
+      {sent && <p className="text-center text-xs text-brand-700">{sent}</p>}
+    </form>
   )
 }
 
@@ -202,11 +290,20 @@ export function Register() {
   const [seller, setSeller] = useState({ business_name: '', description: '', address: '', city: '', state: '', pincode: '' })
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [otp, setOtp] = useState(null)
 
   if (user) {
     // "Sell on …" while signed in as a buyer: seller accounts are separate, so explain.
     if (params.get('role') === 'seller' && user.role === 'buyer') return <SellerSwitch />
     return <Navigate to={homeFor(user)} replace />
+  }
+
+  if (otp) {
+    return (
+      <AuthShell title="Verify your email" subtitle="Enter the 6-digit code we sent to finish creating your account.">
+        <OtpStep otp={otp} onBack={() => setOtp(null)} onDone={(u) => navigate(homeFor(u), { replace: true })} />
+      </AuthShell>
+    )
   }
 
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value })
@@ -220,8 +317,9 @@ export function Register() {
     try {
       const body = { ...form, phone: form.phone || null, role }
       if (role === 'seller') body.seller = blankToNull(seller)
-      const u = await register(body)
-      navigate(homeFor(u), { replace: true })
+      const res = await register(body)
+      if (res.otp) return setOtp(res.otp)
+      navigate(homeFor(res.user), { replace: true })
     } catch (err) {
       setError(errorMessage(err))
     } finally {

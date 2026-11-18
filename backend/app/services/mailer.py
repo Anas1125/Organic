@@ -7,6 +7,10 @@ order or a password reset.
 
 import html
 import logging
+import smtplib
+import ssl
+from email.message import EmailMessage
+from email.utils import formataddr, parseaddr
 
 import httpx
 
@@ -20,8 +24,10 @@ BRAND = "#1E4D3B"
 def send_email(to: str, subject: str, heading: str, paragraphs: list[str], button: tuple[str, str] | None = None) -> bool:
     body_html = render(heading, paragraphs, button)
     text = "\n\n".join([heading, *paragraphs] + ([f"{button[0]}: {button[1]}"] if button else []))
+    if settings.smtp_host and settings.smtp_user and settings.smtp_password:
+        return _send_smtp(to, subject, body_html, text)
     if not settings.resend_api_key:
-        logger.info("Email (not sent, no RESEND_API_KEY) to=%s subject=%s\n%s", to, subject, text)
+        logger.info("Email (not sent, no email service set up) to=%s subject=%s\n%s", to, subject, text)
         return False
     try:
         r = httpx.post(
@@ -36,6 +42,45 @@ def send_email(to: str, subject: str, heading: str, paragraphs: list[str], butto
         return True
     except httpx.HTTPError:
         logger.exception("Could not reach Resend")
+        return False
+
+
+def mail_configured() -> bool:
+    return bool((settings.smtp_host and settings.smtp_user and settings.smtp_password) or settings.resend_api_key)
+
+
+def mail_reaches_anyone() -> bool:
+    """True when emails can go to any address: SMTP (e.g. Gmail), or Resend with your own
+    verified domain. Resend's shared onboarding@resend.dev only delivers to the account owner."""
+    if settings.smtp_host and settings.smtp_user and settings.smtp_password:
+        return True
+    return bool(settings.resend_api_key) and "resend.dev" not in settings.mail_from
+
+
+def _send_smtp(to: str, subject: str, body_html: str, text: str) -> bool:
+    # Gmail only sends "from" its own address, so use the SMTP login unless MAIL_FROM matches it.
+    name, addr = parseaddr(settings.mail_from)
+    if not addr or addr.endswith("@resend.dev"):
+        addr = settings.smtp_user
+    msg = EmailMessage()
+    msg["From"] = formataddr((name or "Terralens", addr))
+    msg["To"] = to
+    msg["Subject"] = subject
+    msg.set_content(text)
+    msg.add_alternative(body_html, subtype="html")
+    try:
+        if settings.smtp_port == 465:
+            with smtplib.SMTP_SSL(settings.smtp_host, 465, context=ssl.create_default_context(), timeout=10) as smtp:
+                smtp.login(settings.smtp_user, settings.smtp_password)
+                smtp.send_message(msg)
+        else:
+            with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10) as smtp:
+                smtp.starttls(context=ssl.create_default_context())
+                smtp.login(settings.smtp_user, settings.smtp_password)
+                smtp.send_message(msg)
+        return True
+    except (smtplib.SMTPException, OSError):
+        logger.exception("SMTP send to %s failed", to)
         return False
 
 
