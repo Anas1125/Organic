@@ -55,6 +55,8 @@ export function AuthProvider({ children }) {
   const resendOtp = async (challenge) => (await api.post('/auth/resend-otp', { challenge })).data
   const logout = () => {
     tokenStore.set(null)
+    // Logging out also forgets this browser, so the next login asks for an emailed code.
+    try { localStorage.removeItem(deviceKey) } catch { /* private mode */ }
     setUser(null)
   }
 
