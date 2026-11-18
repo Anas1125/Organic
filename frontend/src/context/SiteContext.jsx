@@ -23,6 +23,26 @@ export function SiteProvider({ children }) {
     document.title = `${site.site_name} — GI-Tagged Products, Wholesale`
   }, [site.site_name])
 
+  // Browser-tab icon follows the logo uploaded in Admin → Site settings (default: the leaf).
+  useEffect(() => {
+    const href = site.logo_url || '/leaf.svg'
+    let link = document.querySelector("link[rel='icon']")
+    if (!link) {
+      link = document.createElement('link')
+      link.rel = 'icon'
+      document.head.appendChild(link)
+    }
+    link.type = href.endsWith('.svg') ? 'image/svg+xml' : 'image/webp'
+    link.href = href
+    let apple = document.querySelector("link[rel='apple-touch-icon']")
+    if (!apple) {
+      apple = document.createElement('link')
+      apple.rel = 'apple-touch-icon'
+      document.head.appendChild(apple)
+    }
+    apple.href = href
+  }, [site.logo_url])
+
   return <SiteContext.Provider value={{ site, setSite, loaded }}>{children}</SiteContext.Provider>
 }
 
