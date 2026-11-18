@@ -9,7 +9,7 @@ export default function DashboardLayout({ title, nav, banner }) {
   const [open, setOpen] = useState(false)
   const { pathname } = useLocation()
   const navigate = useNavigate()
-  useEffect(() => { setOpen(false); window.scrollTo(0, 0) }, [pathname])
+  useEffect(() => { setOpen(false) }, [pathname])
 
   const sidebar = (
     <div className="flex h-full flex-col">
