@@ -116,7 +116,7 @@ function OtpStep({ otp, onDone, onBack }) {
     setBusy(true)
     setError('')
     try {
-      onDone(await verifyOtp(current.challenge, code, current.remember))
+      onDone(await verifyOtp(current.challenge, code, current.remember, current.trust))
     } catch (err) {
       setError(errorMessage(err))
       setCode('')

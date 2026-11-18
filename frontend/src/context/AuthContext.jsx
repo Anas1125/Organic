@@ -40,12 +40,15 @@ export function AuthProvider({ children }) {
   // code is needed first — the page then shows the code screen and calls verifyOtp.
   const deviceKey = 'terralens_device'
   const deviceToken = () => { try { return localStorage.getItem(deviceKey) } catch { return null } }
-  const settle = (data, remember) => (data.otp_required ? { otp: { ...data, remember } } : { user: finish(data, remember) })
+  const settle = (data, remember) => (data.otp_required ? { otp: { trust: remember, ...data, remember } } : { user: finish(data, remember) })
   const login = async (email, password, remember = false) =>
     settle((await api.post('/auth/login', { email, password, remember, device_token: deviceToken() })).data, remember)
-  const register = async (body) => settle((await api.post('/auth/register', body)).data, true)
-  const verifyOtp = async (challenge, code, remember) => {
-    const { data } = await api.post('/auth/verify-otp', { challenge, code, remember })
+  // After sign-up the browser stays logged in, but isn't trusted: the next login asks for a code.
+  const register = async (body) => settle({ ...(await api.post('/auth/register', body)).data, trust: false }, true)
+  // remember: keep this login after the browser closes. trust: skip the code on this
+  // browser for 30 days (only when the customer ticked "Remember me" at login).
+  const verifyOtp = async (challenge, code, remember, trust = remember) => {
+    const { data } = await api.post('/auth/verify-otp', { challenge, code, remember: trust })
     if (data.device_token) { try { localStorage.setItem(deviceKey, data.device_token) } catch { /* private mode */ } }
     return finish(data, remember)
   }
