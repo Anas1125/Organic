@@ -13,7 +13,9 @@ export function LeafMark({ light = false, className = 'size-8' }) {
 
 /** Brand logo. Uses the uploaded logo and name from Admin → Site settings when set. */
 export function Logo({ light = false, className = '', asLink = true }) {
-  const { site } = useSite()
+  const { site, ready } = useSite()
+  // Until the real brand is known, keep the space empty rather than flash the default leaf.
+  if (!ready) return <span className={`block h-8 w-36 shrink-0 ${className}`} aria-hidden />
   const body = (
     <>
       {site.logo_url

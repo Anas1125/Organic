@@ -2,14 +2,31 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/leaf.svg" />
+    <script>
+      // Use the logo and name from the last visit straight away (no flash of the default leaf).
+      // First visit: a blank icon until the site settings load.
+      (function () {
+        var href = 'data:,'
+        try {
+          var c = JSON.parse(localStorage.getItem('terralens_site') || 'null')
+          if (c) {
+            href = c.logo_url || '/leaf.svg'
+            if (c.site_name) document.title = c.site_name + ' — GI-Tagged Products, Wholesale'
+          }
+        } catch (e) {}
+        var l = document.createElement('link')
+        l.rel = 'icon'
+        l.href = href
+        document.head.appendChild(l)
+      })()
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#1E4D3B" />
     <meta name="description" content="Terralens — wholesale marketplace for GI-tagged products from Tamil Nadu: silk sarees, handicrafts and traditional foods." />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <title>Terralens — GI-Tagged Products, Wholesale</title>
+    <title>GI-Tagged Products, Wholesale</title>
   </head>
   <body>
     <div id="root"></div>
