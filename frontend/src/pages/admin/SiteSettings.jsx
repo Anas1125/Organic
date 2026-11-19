@@ -1,6 +1,7 @@
 import { ImagePlus, MapPin, Plus, RotateCcw, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import api, { errorMessage } from '../../api/client'
+import { shrinkImage } from '../../lib/images'
 import { LeafMark, Logo } from '../../components/Brand'
 import { Button, Field, Input, PageHeader, Textarea } from '../../components/ui'
 import { useSite } from '../../context/SiteContext'
@@ -51,7 +52,7 @@ export default function SiteSettings() {
     setBusy('logo')
     try {
       const fd = new FormData()
-      fd.append('file', file)
+      fd.append('file', await shrinkImage(file, { maxSide: 1200 }))
       setSite((await api.post('/admin/site-settings/logo', fd)).data)
       toast.success('Logo updated')
     } catch (err) {
@@ -89,7 +90,7 @@ export default function SiteSettings() {
 
       <section className="card mb-5 p-5 sm:p-6">
         <h2 className="font-semibold">Logo</h2>
-        <p className="mb-4 text-sm text-muted">PNG, JPG or WebP up to 5 MB. A square or wide image with a transparent background works best. Shown at 32 px tall.</p>
+        <p className="mb-4 text-sm text-muted">PNG, JPG or WebP. Large images are shrunk automatically. A square or wide image with a transparent background works best. Shown at 32 px tall.</p>
         <div className="flex flex-wrap items-center gap-4">
           <div className="grid size-20 place-items-center rounded-2xl border border-line bg-canvas p-2">
             {site.logo_url ? <img src={site.logo_url} alt="Current logo" className="max-h-full max-w-full object-contain" /> : <LeafMark className="size-10" />}

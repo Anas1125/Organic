@@ -2,6 +2,7 @@ import { ChevronLeft, ImagePlus, Info, Plus, Trash2, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import api, { errorMessage } from '../../api/client'
+import { shrinkAll } from '../../lib/images'
 import { Button, ErrorBox, Field, Input, PageHeader, Select, Spinner, StatusBadge, Textarea } from '../../components/ui'
 import { useToast } from '../../context/ToastContext'
 import MediaEditor from '../../components/MediaEditor'
@@ -51,7 +52,7 @@ function ImageManager({ product, pending, setPending, onProductChange }) {
     setBusy(true)
     try {
       const fd = new FormData()
-      files.forEach((f) => fd.append('files', f))
+      ;(await shrinkAll(files)).forEach((f) => fd.append('files', f))
       onProductChange((await api.post(`/seller/products/${product.id}/images`, fd)).data)
       toast.success('Images uploaded')
     } catch (err) {
@@ -149,7 +150,7 @@ export default function ProductForm() {
         const { data } = await api.post('/seller/products', body)
         if (pendingImages.length) {
           const fd = new FormData()
-          pendingImages.forEach((f) => fd.append('files', f))
+          ;(await shrinkAll(pendingImages)).forEach((f) => fd.append('files', f))
           try { await api.post(`/seller/products/${data.id}/images`, fd) } catch (err) { toast.error(`Product saved, but images failed: ${errorMessage(err)}`) }
         }
         toast.success('Product submitted for review')

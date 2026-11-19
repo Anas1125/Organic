@@ -38,6 +38,14 @@ api.interceptors.response.use(
 
 /** Turn any API error into one readable sentence. */
 export function errorMessage(err, fallback = 'Something went wrong. Please try again.') {
+  // No response at all: offline, or the host refused the request — usually a file too
+  // large to upload (the browser then reports it as a "CORS" error).
+  if (err?.isAxiosError && !err.response) {
+    return navigator.onLine === false
+      ? 'You seem to be offline. Check your connection and try again.'
+      : 'The server didn’t respond. If you were uploading a file, it may be too large (max about 4 MB) — try a smaller one.'
+  }
+  if (err?.response?.status === 413) return 'That file is too large to upload. Please use one under 4 MB.'
   const detail = err?.response?.data?.detail
   if (typeof detail === 'string') return detail
   if (Array.isArray(detail) && detail.length) {

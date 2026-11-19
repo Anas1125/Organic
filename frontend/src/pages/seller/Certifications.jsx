@@ -38,7 +38,7 @@ function UploadForm({ fields, endpoint, fileRequired, onDone, onCancel }) {
     <form onSubmit={submit} className="space-y-4">
       <ErrorBox message={error} />
       {fields}
-      <Field label={`Supporting document${fileRequired ? '' : ' (optional)'}`} hint={`PDF, JPG or PNG, max 10 MB. Only you and ${site.site_name} admins can see it.`}>
+      <Field label={`Supporting document${fileRequired ? '' : ' (optional)'}`} hint={`PDF, JPG or PNG, max 4 MB. Only you and ${site.site_name} admins can see it.`}>
         <input name="document" type="file" required={fileRequired} accept="application/pdf,image/jpeg,image/png,image/webp" className="input file:mr-3 file:rounded-full file:border-0 file:bg-brand-100 file:px-3 file:py-1 file:text-xs file:font-semibold file:text-brand-800" />
       </Field>
       <div className="flex justify-end gap-2 pt-2">
@@ -183,7 +183,7 @@ function GIForm({ record, onDone, onCancel }) {
       )}
       <Field
         label={editing ? 'Replace document (optional)' : 'Supporting document'}
-        hint={`PDF, JPG or PNG, max 10 MB. Only you and ${site.site_name} admins can see it. Records can't be verified without one.`}
+        hint={`PDF, JPG or PNG, max 4 MB. Only you and ${site.site_name} admins can see it. Records can't be verified without one.`}
       >
         <input name="document" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" className="input file:mr-3 file:rounded-full file:border-0 file:bg-brand-100 file:px-3 file:py-1 file:text-xs file:font-semibold file:text-brand-800" />
       </Field>

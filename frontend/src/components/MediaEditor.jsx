@@ -1,6 +1,7 @@
 import { Film, ImagePlus, Link2, ListChecks, Plus, Trash2, Upload, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import api, { errorMessage } from '../api/client'
+import { shrinkAll } from '../lib/images'
 import { useToast } from '../context/ToastContext'
 import { Button, Input } from './ui'
 
@@ -131,7 +132,7 @@ function PhotoEditor({ product, base, onChange }) {
     setBusy(true)
     try {
       const fd = new FormData()
-      files.forEach((f) => fd.append('files', f))
+      ;(await shrinkAll(files)).forEach((f) => fd.append('files', f))
       onChange((await api.post(`${base}/images`, fd)).data)
       toast.success(files.length > 1 ? `${files.length} photos added` : 'Photo added')
     } catch (err) {
@@ -149,7 +150,7 @@ function PhotoEditor({ product, base, onChange }) {
   }
 
   return (
-    <Section icon={ImagePlus} title={`Photos (${product.images.length}/${MAX_IMAGES})`} hint="The first photo is the cover on product cards. JPG, PNG or WebP under 4 MB; resized automatically.">
+    <Section icon={ImagePlus} title={`Photos (${product.images.length}/${MAX_IMAGES})`} hint="The first photo is the cover on product cards. JPG, PNG or WebP — large photos are shrunk automatically.">
       <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
         {product.images.map((img, i) => (
           <div key={img.id} className="relative aspect-square overflow-hidden rounded-xl bg-canvas">
