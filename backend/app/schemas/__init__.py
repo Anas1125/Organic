@@ -74,6 +74,10 @@ class UserOut(ORM):
     seller_status: str | None = None
 
 
+class MeUpdateOut(UserOut):
+    access_token: str | None = None  # new login for this device after a password change
+
+
 class TokenOut(BaseModel):
     access_token: str
     token_type: str = "bearer"

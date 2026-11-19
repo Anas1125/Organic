@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.models import Order
 from app.models.enums import OrderStatus
-from app.services import payments
+from app.services import payments, ratelimit
 from app.services.orders import ORDER_LOAD, change_status
 
 logger = logging.getLogger("terralens")
@@ -27,6 +27,7 @@ BATCH = 200  # per run, so one request never does too much
 
 def run(db: Session) -> dict:
     payments.expire_stale(db)
+    ratelimit.prune(db)
     done = {"confirmed": 0, "delivered": 0}
 
     if settings.auto_confirm_orders:

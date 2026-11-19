@@ -36,6 +36,11 @@ class Settings(BaseSettings):
     otp_on_signup: bool = True
     otp_on_login: bool = True  # new devices only; "Remember me" trusts a device for 30 days
     otp_exempt_domains: str = "example.com"  # demo accounts whose inboxes don't exist
+    # Strict: refuse sign-up/login when codes can't be delivered, instead of skipping OTP.
+    otp_strict: bool = False
+
+    # Show /docs and /openapi.json (off on the live site unless turned on).
+    api_docs: bool = not ON_SERVERLESS
     password_reset_minutes: int = 30
 
     # Online payments (Razorpay). Without keys, only cash on delivery is offered.

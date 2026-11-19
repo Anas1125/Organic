@@ -34,6 +34,10 @@ app = FastAPI(
     version="1.0.0",
     description="Multi-vendor marketplace for organic and traditional food products. "
     "Authenticate with `POST /api/v1/auth/login`, then click **Authorize** and paste the token.",
+    # Hidden on the live site (API_DOCS=true to show them).
+    docs_url="/docs" if settings.api_docs else None,
+    redoc_url="/redoc" if settings.api_docs else None,
+    openapi_url="/openapi.json" if settings.api_docs else None,
 )
 
 app.add_middleware(

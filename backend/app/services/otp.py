@@ -12,7 +12,7 @@ from datetime import UTC, datetime, timedelta
 
 import jwt
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -36,8 +36,18 @@ def _exempt(user: User) -> bool:
 
 def needed(user: User, purpose: str) -> bool:
     on = settings.otp_on_signup if purpose == "signup" else settings.otp_on_login
-    # Never ask for a code that can't be delivered — that would lock people out.
-    return on and mail_reaches_anyone() and not _exempt(user)
+    if not on or _exempt(user):
+        return False
+    if mail_reaches_anyone():
+        return True
+    # Codes can't be delivered. Default: skip OTP so nobody is locked out.
+    # OTP_STRICT: refuse instead, so OTP can never be silently bypassed.
+    if settings.otp_strict:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "Email verification isn't available right now. Please try again later.",
+        )
+    return False
 
 
 def hint(email: str) -> str:
@@ -64,6 +74,13 @@ def _read(challenge: str) -> tuple[int, str]:
 
 
 def _send(db: Session, user: User, purpose: str) -> None:
+    # Stop anyone using login / "Resend" to flood an inbox.
+    since = lambda minutes: datetime.now(UTC) - timedelta(minutes=minutes)  # noqa: E731
+    recent = lambda minutes: db.scalar(  # noqa: E731
+        select(func.count(OtpCode.id)).where(OtpCode.user_id == user.id, OtpCode.created_at > since(minutes))
+    )
+    if recent(15) >= 5 or recent(24 * 60) >= 20:
+        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "Too many codes requested. Please try again later.")
     code = f"{secrets.randbelow(1_000_000):06d}"
     db.add(OtpCode(
         user_id=user.id, purpose=purpose, code_hash=_h(f"{user.id}:{code}"),

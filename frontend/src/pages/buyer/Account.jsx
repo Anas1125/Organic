@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { AddressBook } from '../../components/addresses'
 import useFetch from '../../hooks/useFetch'
-import api, { errorMessage } from '../../api/client'
+import api, { errorMessage, tokenStore } from '../../api/client'
 import { Button, Field, Input, PasswordInput, Select } from '../../components/ui'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../context/ToastContext'
@@ -42,6 +42,12 @@ export function AccountForm() {
         return
       }
       const { data } = await api.patch('/auth/me', body)
+      // A new password logs out every other device; keep this one logged in with the fresh token.
+      if (data.access_token) {
+        let remembered = true
+        try { remembered = !!localStorage.getItem('terralens_token') } catch { /* private mode */ }
+        tokenStore.set(data.access_token, remembered)
+      }
       setUser(data)
       setPw({ email: data.email, new_password: '', current_password: '' })
       toast.success('Login details updated')

@@ -10,12 +10,21 @@ from app import schemas as s
 from app.core.config import settings
 from app.core.deps import require_buyer
 from app.db import get_db
-from app.models import User
+from sqlalchemy import select
+
+from app.models import Payment, User
 from app.services import payments
 from app.services import razorpay as rzp
 
 logger = logging.getLogger("terralens")
 router = APIRouter(prefix="/payments", tags=["Payments"])
+
+
+def _own_payment(db: Session, buyer: User, razorpay_order_id: str) -> Payment:
+    p = db.scalar(select(Payment).where(Payment.razorpay_order_id == razorpay_order_id))
+    if not p or p.buyer_id != buyer.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Payment not found")
+    return p
 
 
 @router.get("/config")
@@ -38,19 +47,17 @@ def start(ref: str, buyer: User = Depends(require_buyer), db: Session = Depends(
 def verify(body: s.PaymentVerifyIn, buyer: User = Depends(require_buyer), db: Session = Depends(get_db)):
     """Called by the browser after Razorpay reports success. The signature proves the
     details came from Razorpay; the payment is then double-checked with Razorpay."""
+    _own_payment(db, buyer, body.razorpay_order_id)  # before touching anything
     if not rzp.valid_payment_signature(body.razorpay_order_id, body.razorpay_payment_id, body.razorpay_signature):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Payment could not be verified")
-    payment = payments.confirm_paid(db, body.razorpay_order_id, body.razorpay_payment_id)
-    if payment.buyer_id != buyer.id:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Payment not found")
+    payments.confirm_paid(db, body.razorpay_order_id, body.razorpay_payment_id)
     return s.Message(detail="Payment successful")
 
 
 @router.post("/failed", response_model=s.Message)
 def failed(body: s.PaymentFailedIn, buyer: User = Depends(require_buyer), db: Session = Depends(get_db)):
-    payment = payments.record_failure(db, body.razorpay_order_id, body.reason)
-    if not payment or payment.buyer_id != buyer.id:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Payment not found")
+    _own_payment(db, buyer, body.razorpay_order_id)  # before touching anything
+    payments.record_failure(db, body.razorpay_order_id, body.reason)
     return s.Message(detail="Payment failure recorded")
 
 

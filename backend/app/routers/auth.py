@@ -2,7 +2,7 @@ import hashlib
 import secrets
 from datetime import UTC, datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -12,7 +12,7 @@ from app.core.deps import get_current_user
 from app.core.security import create_access_token, hash_password, verify_password
 from app.db import get_db
 from app.models import PasswordReset, SellerProfile, User
-from app.services import otp
+from app.services import otp, ratelimit
 from app.services.mailer import esc, send_email
 from app.models.enums import Role
 from app.services.serializers import user_out
@@ -50,11 +50,21 @@ def register(body: s.RegisterIn, db: Session = Depends(get_db)):
     return s.AuthOut(access_token=create_access_token(user.id, user.role), user=user_out(user))
 
 
+LOGIN_WINDOW = 15  # minutes
+WAIT_MSG = "Too many failed attempts. Please wait 15 minutes and try again, or reset your password."
+
+
 @router.post("/login", response_model=s.AuthOut)
-def login(body: s.LoginIn, db: Session = Depends(get_db)):
-    user = db.query(User).filter_by(email=body.email.lower()).first()
+def login(body: s.LoginIn, request: Request, db: Session = Depends(get_db)):
+    email = body.email.strip().lower()
+    email_key, ip_key = f"login-email:{email}", f"login-ip:{ratelimit.client_ip(request)}"
+    ratelimit.guard(db, email_key, 5, LOGIN_WINDOW, WAIT_MSG)  # per account
+    ratelimit.guard(db, ip_key, 20, LOGIN_WINDOW, WAIT_MSG)  # per connection
+    user = db.query(User).filter_by(email=email).first()
     if not user or not verify_password(body.password, user.password_hash):
+        ratelimit.hit(db, email_key, ip_key)
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Incorrect email or password")
+    ratelimit.clear(db, email_key)
     if not user.is_active:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "This account has been deactivated")
     # New device (or an email never confirmed): ask for the emailed code first.
@@ -86,7 +96,7 @@ def me(user: User = Depends(get_current_user)):
     return user_out(user)
 
 
-@router.patch("/me", response_model=s.UserOut)
+@router.patch("/me", response_model=s.MeUpdateOut)
 def update_me(
     body: s.UserUpdate, user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
@@ -105,6 +115,8 @@ def update_me(
         user.email = new_email
     if body.new_password:
         user.password_hash = hash_password(body.new_password)
+        # Log out every other session; this device gets a fresh login below.
+        user.sessions_valid_after = datetime.now(UTC).replace(microsecond=0)
     for field in ("full_name", "phone"):
         value = getattr(body, field)
         if value is not None:
@@ -113,7 +125,10 @@ def update_me(
         user.buyer_type = body.buyer_type
     db.commit()
     db.refresh(user)
-    return user_out(user)
+    out = s.MeUpdateOut(**user_out(user).model_dump())
+    if body.new_password:
+        out.access_token = create_access_token(user.id, user.role)
+    return out
 
 
 RESET_SENT = s.Message(

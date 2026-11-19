@@ -421,3 +421,13 @@ class TrustedDevice(Base):
     token_hash: Mapped[str] = mapped_column(String(64), unique=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class RateEvent(Base):
+    """A counted event for rate limiting (failed logins, codes sent). Old rows are pruned."""
+
+    __tablename__ = "rate_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    key: Mapped[str] = mapped_column(String(200), index=True)  # e.g. "login-email:a@b.com"
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
