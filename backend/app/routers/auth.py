@@ -116,7 +116,7 @@ def update_me(
     if body.new_password:
         user.password_hash = hash_password(body.new_password)
         # Log out every other session; this device gets a fresh login below.
-        user.sessions_valid_after = datetime.now(UTC).replace(microsecond=0)
+        user.sessions_valid_after = datetime.now(UTC)
     for field in ("full_name", "phone"):
         value = getattr(body, field)
         if value is not None:
@@ -191,7 +191,7 @@ def reset_password(body: s.ResetPasswordIn, db: Session = Depends(get_db)):
     if not user or not user.is_active:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "This account can't be reset")
     user.password_hash = hash_password(body.password)
-    user.sessions_valid_after = now.replace(microsecond=0)  # log out everywhere
+    user.sessions_valid_after = now  # log out everywhere
     # Use up this link and any other open ones.
     for r in db.scalars(select(PasswordReset).where(PasswordReset.user_id == user.id, PasswordReset.used_at.is_(None))):
         r.used_at = now

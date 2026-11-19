@@ -26,7 +26,7 @@ def get_current_user(
     if not user or not user.is_active:
         raise unauthorized
     # A password reset logs the account out everywhere.
-    if user.sessions_valid_after and payload.get("iat", 0) < int(user.sessions_valid_after.timestamp()):
+    if user.sessions_valid_after and payload.get("iat", 0) < user.sessions_valid_after.timestamp():
         raise unauthorized
     return user
 

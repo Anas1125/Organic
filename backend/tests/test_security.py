@@ -1,7 +1,5 @@
 """Rate limits, strict OTP, session logout on password change, payment ownership."""
 
-import time
-
 from app.core.config import settings
 from tests.conftest import PASSWORD, auth, register
 
@@ -63,7 +61,6 @@ def test_code_requests_are_capped(client, monkeypatch):
 def test_password_change_logs_out_other_sessions(client, buyer):
     email = _email(client, buyer)
     other = auth(client.post(LOGIN, json={"email": email, "password": PASSWORD}).json()["access_token"])
-    time.sleep(1.1)  # the cutoff is to the second
     r = client.patch("/api/v1/auth/me", headers=buyer, json={"current_password": PASSWORD, "new_password": "brand-new-pass-1"})
     assert r.status_code == 200 and r.json()["access_token"]
     assert client.get("/api/v1/auth/me", headers=other).status_code == 401
@@ -80,3 +77,26 @@ def test_docs_hidden_when_turned_off():
     assert settings.api_docs  # on locally
     monkey = main.FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
     assert TestClient(monkey).get("/docs").status_code == 404
+
+
+def test_same_second_tokens_are_logged_out(client, buyer, monkeypatch):
+    """Regression: the cutoff used to be whole seconds, so a token issued earlier in the
+    same second as a password change stayed valid. Freeze the clock to force that case."""
+    from datetime import UTC, datetime, timedelta
+
+    frozen = (datetime.now(UTC) - timedelta(seconds=3)).replace(microsecond=100_000)
+
+    class Clock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return frozen
+
+    email = _email(client, buyer)
+    monkeypatch.setattr("app.core.security.datetime", Clock)
+    old = auth(client.post(LOGIN, json={"email": email, "password": PASSWORD}).json()["access_token"])
+    frozen = frozen.replace(microsecond=900_000)  # same second, a little later
+    monkeypatch.setattr("app.routers.auth.datetime", Clock)
+    r = client.patch("/api/v1/auth/me", headers=old, json={"current_password": PASSWORD, "new_password": "brand-new-pass-2"})
+    assert r.status_code == 200
+    assert client.get("/api/v1/auth/me", headers=old).status_code == 401
+    assert client.get("/api/v1/auth/me", headers=auth(r.json()["access_token"])).status_code == 200

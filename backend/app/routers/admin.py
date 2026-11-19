@@ -137,7 +137,7 @@ def set_user_password(
     if user.id == owner.id:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Change your own password under My account")
     user.password_hash = hash_password(body.password)
-    user.sessions_valid_after = datetime.now(UTC).replace(microsecond=0)  # log them out everywhere
+    user.sessions_valid_after = datetime.now(UTC)  # log them out everywhere
     db.commit()
 
 

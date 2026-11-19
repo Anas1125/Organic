@@ -23,8 +23,10 @@ def create_access_token(user_id: int, role: str, *, remember: bool = False) -> s
     payload = {
         "sub": str(user_id),
         "role": role,
-        "iat": now,
-        "exp": now + life,
+        # Microsecond issue time, so "log out everywhere" also catches a token from the
+        # same second (JWT allows fractional times; older tokens carry whole seconds).
+        "iat": now.timestamp(),
+        "exp": (now + life).timestamp(),
     }
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
