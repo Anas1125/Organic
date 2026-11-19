@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app import schemas as s
 from app.core.config import settings
-from app.models import CartItem, Order, OrderItem, Product, User
+from app.models import CartItem, Order, OrderItem, Product, SiteSettings, User
 from app.models.enums import OrderStatus, PaymentMethod, PaymentStatus
 from app.services import notify, payments
 from app.services import razorpay as rzp
@@ -81,6 +81,8 @@ def checkout(db: Session, buyer: User, body: s.CheckoutIn) -> list[Order]:
         by_seller.setdefault(p.seller_id, []).append((p, ci.quantity))
 
     ref = secrets.token_hex(8)
+    site = db.get(SiteSettings, 1)
+    commission = site.commission_percent if site else Decimal(0)
     orders: list[Order] = []
     for seller_id, lines in by_seller.items():
         order = Order(
@@ -93,6 +95,7 @@ def checkout(db: Session, buyer: User, body: s.CheckoutIn) -> list[Order]:
             payment_status=PaymentStatus.PENDING,
             subtotal=Decimal(0),
             total=Decimal(0),
+            commission_rate=commission or Decimal(0),
             **body.model_dump(exclude={"payment_method"}),
         )
         subtotal = Decimal(0)

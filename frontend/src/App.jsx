@@ -1,6 +1,6 @@
 import {
   BadgeCheck, BarChart3, Crown, CircleUser, Boxes, FolderTree, LayoutDashboard, Leaf, Mail, Package, PlusCircle,
-  Settings, ShieldCheck, ShoppingBag, Store, UserCog, Users,
+  Settings, ShieldCheck, ShoppingBag, Store, UserCog, Users, Wallet,
 } from 'lucide-react'
 import { Route, Routes } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
@@ -13,6 +13,7 @@ import { AdminCategories, AdminProducts } from './pages/admin/AdminCatalog'
 import { AdminMessages, AdminOrders } from './pages/admin/AdminOrders'
 import { AdminSellers, AdminUsers } from './pages/admin/AdminPeople'
 import { AdminGI, AdminOrganic } from './pages/admin/AdminVerification'
+import AdminPayouts from './pages/admin/AdminPayouts'
 import SiteSettings from './pages/admin/SiteSettings'
 import Account from './pages/buyer/Account'
 import Cart from './pages/buyer/Cart'
@@ -27,6 +28,7 @@ import Certifications from './pages/seller/Certifications'
 import Inventory from './pages/seller/Inventory'
 import ProductForm from './pages/seller/ProductForm'
 import SellerProducts from './pages/seller/Products'
+import Payouts from './pages/seller/Payouts'
 import Sales from './pages/seller/Sales'
 import SellerHome, { SellerStatusBanner } from './pages/seller/SellerHome'
 import SellerOrders from './pages/seller/SellerOrders'
@@ -40,6 +42,7 @@ const SELLER_NAV = [
   { to: '/seller/orders', label: 'Orders', icon: ShoppingBag },
   { to: '/seller/certifications', label: 'Certifications & GI', icon: ShieldCheck },
   { to: '/seller/sales', label: 'Sales overview', icon: BarChart3 },
+  { to: '/seller/payouts', label: 'Payouts', icon: Wallet },
   { to: '/seller/profile', label: 'Profile settings', icon: UserCog },
 ]
 
@@ -52,6 +55,7 @@ const ADMIN_NAV = [
   { to: '/admin/gi', label: 'GI documents', icon: BadgeCheck },
   { to: '/admin/organic', label: 'Organic certificates', icon: Leaf },
   { to: '/admin/orders', label: 'Orders', icon: ShoppingBag },
+  { to: '/admin/payouts', label: 'Seller payouts', icon: Wallet },
   { to: '/admin/messages', label: 'Messages', icon: Mail },
   { to: '/admin/settings', label: 'Site settings', icon: Settings },
   { to: '/admin/admins', label: 'Admins', icon: Crown, ownerOnly: true },
@@ -98,6 +102,7 @@ export default function App() {
           <Route path="orders" element={<SellerOrders />} />
           <Route path="certifications" element={<Certifications />} />
           <Route path="sales" element={<Sales />} />
+          <Route path="payouts" element={<Payouts />} />
           <Route path="profile" element={<SellerProfile />} />
         </Route>
       </Route>
@@ -112,6 +117,7 @@ export default function App() {
           <Route path="gi" element={<AdminGI />} />
           <Route path="organic" element={<AdminOrganic />} />
           <Route path="orders" element={<AdminOrders />} />
+          <Route path="payouts" element={<AdminPayouts />} />
           <Route path="messages" element={<AdminMessages />} />
           <Route path="settings" element={<SiteSettings />} />
           <Route path="admins" element={<AdminAdmins />} />

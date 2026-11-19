@@ -79,6 +79,11 @@ class SellerProfile(TimestampMixin, Base):
     phone: Mapped[str | None] = mapped_column(String(20))
     status: Mapped[str] = mapped_column(String(10), default=ReviewStatus.PENDING, index=True)
     rejection_reason: Mapped[str | None] = mapped_column(String(500))
+    # Where the platform sends this seller's money (UPI ID and/or a bank account).
+    payout_upi: Mapped[str | None] = mapped_column(String(100))
+    bank_account_name: Mapped[str | None] = mapped_column(String(120))
+    bank_account_number: Mapped[str | None] = mapped_column(String(30))
+    bank_ifsc: Mapped[str | None] = mapped_column(String(11))
 
     user: Mapped[User] = relationship(back_populates="seller_profile")
     products: Mapped[list["Product"]] = relationship(back_populates="seller")
@@ -271,6 +276,14 @@ class Order(TimestampMixin, Base):
     shipping_state: Mapped[str] = mapped_column(String(80))
     shipping_pincode: Mapped[str] = mapped_column(String(10))
     notes: Mapped[str | None] = mapped_column(String(500))
+    # Platform commission (% of the subtotal), fixed when the order is placed.
+    commission_rate: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal(0), server_default="0")
+    # Settlement with the seller: which payout included it and for how much (+ owed to the
+    # seller for online payments, - commission owed by the seller for cash on delivery).
+    payout_id: Mapped[int | None] = mapped_column(ForeignKey("payouts.id"), index=True)
+    payout_amount: Mapped[Decimal | None] = mapped_column(Money)
+    # If it was refunded after being settled, the payout that took the amount back.
+    reversal_payout_id: Mapped[int | None] = mapped_column(ForeignKey("payouts.id"), index=True)
 
     buyer: Mapped[User] = relationship()
     seller: Mapped[SellerProfile] = relationship()
@@ -310,6 +323,8 @@ class SiteSettings(Base):
     contact_phone: Mapped[str | None] = mapped_column(String(30))
     contact_hours: Mapped[str | None] = mapped_column(String(120))
     locations: Mapped[list[str] | None] = mapped_column(JSON)
+    # Platform commission on new orders, in percent of the order subtotal.
+    commission_percent: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal(0), server_default="0")
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, onupdate=utcnow
     )
@@ -431,3 +446,20 @@ class RateEvent(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     key: Mapped[str] = mapped_column(String(200), index=True)  # e.g. "login-email:a@b.com"
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+
+
+class Payout(Base):
+    """Money settled with a seller. Positive: the platform paid the seller.
+    Negative: the seller paid the platform (commission on cash-on-delivery orders)."""
+
+    __tablename__ = "payouts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    seller_id: Mapped[int] = mapped_column(ForeignKey("seller_profiles.id", ondelete="CASCADE"), index=True)
+    amount: Mapped[Decimal] = mapped_column(Money)
+    reference: Mapped[str | None] = mapped_column(String(100))  # UPI / bank transaction ID
+    note: Mapped[str | None] = mapped_column(String(300))
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+
+    seller: Mapped[SellerProfile] = relationship()

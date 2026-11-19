@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.core.config import settings
-from app.routers import admin, auth, buyer, catalog, documents, internal, media, payments, seller, site
+from app.routers import admin, auth, buyer, catalog, documents, internal, media, payments, payouts, seller, site
 
 logger = logging.getLogger("terralens")
 class _PrintHandler(logging.Handler):
@@ -58,6 +58,7 @@ for r in (
     admin.router,
     site.router,
     payments.router,
+    payouts.router,
     internal.router,
 ):
     app.include_router(r, prefix=API)
