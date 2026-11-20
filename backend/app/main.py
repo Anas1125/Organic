@@ -40,6 +40,38 @@ app = FastAPI(
     openapi_url="/openapi.json" if settings.api_docs else None,
 )
 
+class CatchErrors:
+    """Turn crashes into a JSON 500 *inside* the CORS layer, so the browser still gets
+    the CORS headers and shows the error (FastAPI's own Exception handler runs outside
+    CORS, and a header-less 500 looks to the browser like the server never answered)."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            return await self.app(scope, receive, send)
+        started = False
+
+        async def tracked(message):
+            nonlocal started
+            if message["type"] == "http.response.start":
+                started = True
+            await send(message)
+
+        try:
+            await self.app(scope, receive, tracked)
+        except Exception:
+            logger.exception("Unhandled error on %s %s", scope.get("method"), scope.get("path"))
+            if started:  # the response already began; nothing better to send
+                raise
+            await JSONResponse({"detail": "Something went wrong. Please try again."}, status_code=500)(
+                scope, receive, send
+            )
+
+
+# Added first so it sits inside CORSMiddleware (later middleware wraps earlier ones).
+app.add_middleware(CatchErrors)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list,

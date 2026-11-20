@@ -100,3 +100,22 @@ def test_same_second_tokens_are_logged_out(client, buyer, monkeypatch):
     assert r.status_code == 200
     assert client.get("/api/v1/auth/me", headers=old).status_code == 401
     assert client.get("/api/v1/auth/me", headers=auth(r.json()["access_token"])).status_code == 200
+
+
+def test_server_errors_keep_cors_headers(client, monkeypatch):
+    """Regression: a crash returned a 500 without CORS headers, which the browser
+    reports as "the server didn't respond" instead of showing the error."""
+    from app.core.config import settings as cfg
+
+    def boom(*a, **k):
+        raise RuntimeError("database went away")
+
+    monkeypatch.setattr("app.routers.site.get_settings_row", boom)
+    origin = cfg.cors_origin_list[0]
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+    r = TestClient(app, raise_server_exceptions=False).get("/api/v1/site-settings", headers={"Origin": origin})
+    assert r.status_code == 500
+    assert r.headers.get("access-control-allow-origin") == origin
+    assert r.json()["detail"]

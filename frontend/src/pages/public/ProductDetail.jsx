@@ -13,7 +13,7 @@ export default function ProductDetail() {
   const { site } = useSite()
   const { id } = useParams()
   const navigate = useNavigate()
-  const { data: p, loading, error } = useFetch(`/products/${id}`)
+  const { data: p, loading, error, status, reload } = useFetch(`/products/${id}`)
   const [qty, setQty] = useState(1)
   const { addToCart, buyNow, busy, buying } = useAddToCart()
 
@@ -23,7 +23,14 @@ export default function ProductDetail() {
   if (error || !p) {
     return (
       <div className="container-page py-10">
-        <div className="card"><EmptyState icon={Package} title="Product not available" text={error} action={<Button to="/shop">Back to shop</Button>} /></div>
+        <div className="card">
+          {status === 404 ? (
+            <EmptyState icon={Package} title="Product not available" text="It may have been removed or is no longer sold." action={<Button to="/shop">Back to shop</Button>} />
+          ) : (
+            <EmptyState icon={Package} title="Couldn’t load this product" text={error}
+              action={<div className="flex flex-wrap justify-center gap-2"><Button onClick={reload}>Try again</Button><Button variant="outline" to="/shop">Back to shop</Button></div>} />
+          )}
+        </div>
       </div>
     )
   }

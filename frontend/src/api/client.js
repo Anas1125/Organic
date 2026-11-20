@@ -25,12 +25,24 @@ api.interceptors.request.use((config) => {
   return config
 })
 
+const wait = (ms) => new Promise((r) => setTimeout(r, ms))
+
 api.interceptors.response.use(
   (res) => res,
-  (err) => {
+  async (err) => {
     if (err.response?.status === 401 && tokenStore.get()) {
       tokenStore.set(null)
       window.dispatchEvent(new Event('auth:expired'))
+    }
+    // Page loads (GET) that get no answer or a "server busy" answer are retried twice:
+    // the host sometimes drops the first request while a sleeping server wakes up.
+    // Only GETs: repeating a POST could place an order or payment twice.
+    const cfg = err.config
+    const transient = !err.response || [502, 503, 504].includes(err.response.status)
+    if (cfg && (cfg.method || 'get') === 'get' && transient && navigator.onLine !== false && (cfg.__retries || 0) < 2) {
+      cfg.__retries = (cfg.__retries || 0) + 1
+      await wait(600 * cfg.__retries)
+      return api(cfg)
     }
     return Promise.reject(err)
   },
@@ -38,12 +50,13 @@ api.interceptors.response.use(
 
 /** Turn any API error into one readable sentence. */
 export function errorMessage(err, fallback = 'Something went wrong. Please try again.') {
-  // No response at all: offline, or the host refused the request — usually a file too
-  // large to upload (the browser then reports it as a "CORS" error).
+  // No response at all: offline, the server busy, or the host refused an upload that's
+  // too large (the browser reports that as a "CORS" error).
   if (err?.isAxiosError && !err.response) {
-    return navigator.onLine === false
-      ? 'You seem to be offline. Check your connection and try again.'
-      : 'The server didn’t respond. If you were uploading a file, it may be too large (max about 4 MB) — try a smaller one.'
+    if (navigator.onLine === false) return 'You seem to be offline. Check your connection and try again.'
+    return err.config?.data instanceof FormData
+      ? 'The upload didn’t go through. The file may be too large (max about 4 MB) — try a smaller one.'
+      : 'Couldn’t reach the server just now. Please try again in a moment.'
   }
   if (err?.response?.status === 413) return 'That file is too large to upload. Please use one under 4 MB.'
   const detail = err?.response?.data?.detail
