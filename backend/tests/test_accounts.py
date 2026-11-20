@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 import jwt
 
 from app.core.config import settings
-from tests.conftest import PASSWORD, auth
+from tests.conftest import PASSWORD, auth, register
 
 
 def _exp_days(token):
@@ -42,3 +42,16 @@ def test_forgot_and_reset_password(client, buyer, monkeypatch):
     assert client.post("/api/v1/auth/reset-password", json={"token": token, "password": "again-123456"}).status_code == 400
     assert client.post("/api/v1/auth/login", json={"email": email, "password": PASSWORD}).status_code == 401
     assert client.post("/api/v1/auth/login", json={"email": email, "password": "new-pass-123"}).status_code == 200
+
+
+def test_taken_email_explains_what_to_do(client):
+    register(client, "shop.owner@gmail.com")
+    body = {"email": "Shop.Owner@gmail.com", "password": PASSWORD, "full_name": "Shop Owner", "role": "seller",
+            "seller": {"business_name": "Owner Farm"}}
+    r = client.post("/api/v1/auth/register", json=body)
+    assert r.status_code == 409
+    msg = r.json()["detail"]
+    assert "buyer account" in msg and "shop.owner+seller@gmail.com" in msg
+    # Same type again: just log in
+    r = client.post("/api/v1/auth/register", json={**body, "role": "buyer", "seller": None})
+    assert "log in" in r.json()["detail"]

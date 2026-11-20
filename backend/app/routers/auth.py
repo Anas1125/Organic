@@ -20,11 +20,28 @@ from app.services.serializers import user_out
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
 
+def _taken_message(existing: User, wanted: str, email: str) -> str:
+    """Explain what to do when the email is taken. Buyer and seller accounts are separate,
+    so someone who shops and sells needs a second email (a Gmail "+" alias works)."""
+    kinds = {Role.BUYER: "buyer", Role.SELLER: "seller", Role.ADMIN: "admin"}
+    have = kinds.get(existing.role, "an")
+    if existing.role == wanted:
+        return f"You already have a {have} account with this email. Please log in instead, or use Forgot password."
+    local, _, domain = email.partition("@")
+    alias = f"{local}+{kinds.get(wanted, 'new')}@{domain}"
+    tip = f" Tip: {alias} still arrives in your Gmail inbox." if domain in ("gmail.com", "googlemail.com") else ""
+    return (
+        f"This email already has a {have} account. Buyer and seller accounts are separate, "
+        f"so please use a different email to sign up as a {kinds.get(wanted, 'new')}.{tip}"
+    )
+
+
 @router.post("/register", response_model=s.AuthOut, status_code=201)
 def register(body: s.RegisterIn, db: Session = Depends(get_db)):
     email = body.email.lower()
-    if db.query(User).filter_by(email=email).first():
-        raise HTTPException(status.HTTP_409_CONFLICT, "An account with this email already exists")
+    existing = db.query(User).filter_by(email=email).first()
+    if existing:
+        raise HTTPException(status.HTTP_409_CONFLICT, _taken_message(existing, body.role, email))
     if body.role == Role.SELLER and not body.seller:
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_CONTENT, "Business details are required for sellers"

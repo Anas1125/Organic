@@ -273,6 +273,11 @@ function SellerSwitch() {
           You're signed in as <strong className="[overflow-wrap:anywhere]">{user.email}</strong>, which is a buyer account.
           To list products, log out and create a seller account with a different email.
         </p>
+        {/@(gmail|googlemail)\.com$/i.test(user.email) && (
+          <p className="rounded-xl bg-brand-50 p-3">
+            Tip: use <strong className="[overflow-wrap:anywhere]">{user.email.replace('@', '+seller@')}</strong> — it's a separate account, but the emails still arrive in your Gmail inbox.
+          </p>
+        )}
         <p className="text-muted">Your orders and cart stay safe in your buyer account — log back in any time.</p>
         <Button size="lg" className="w-full" onClick={logout}><Store className="size-5" /> Log out and create a seller account</Button>
         <Button size="lg" variant="outline" className="w-full" to="/shop">Keep shopping</Button>
