@@ -24,14 +24,14 @@ def _taken_message(existing: User, wanted: str, email: str) -> str:
     """Explain what to do when the email is taken. Buyer and seller accounts are separate,
     so someone who shops and sells needs a second email (a Gmail "+" alias works)."""
     kinds = {Role.BUYER: "buyer", Role.SELLER: "seller", Role.ADMIN: "admin"}
-    have = kinds.get(existing.role, "an")
+    have = {Role.BUYER: "a buyer", Role.SELLER: "a seller", Role.ADMIN: "an admin"}.get(existing.role, "an")
     if existing.role == wanted:
-        return f"You already have a {have} account with this email. Please log in instead, or use Forgot password."
+        return f"You already have {have} account with this email. Please log in instead, or use Forgot password."
     local, _, domain = email.partition("@")
     alias = f"{local}+{kinds.get(wanted, 'new')}@{domain}"
     tip = f" Tip: {alias} still arrives in your Gmail inbox." if domain in ("gmail.com", "googlemail.com") else ""
     return (
-        f"This email already has a {have} account. Buyer and seller accounts are separate, "
+        f"This email already has {have} account. Buyer and seller accounts are separate, "
         f"so please use a different email to sign up as a {kinds.get(wanted, 'new')}.{tip}"
     )
 
