@@ -134,7 +134,7 @@ function SettleDialog({ sellerId, onClose, onDone }) {
           </div>
           {data.lines.length > 0 && (
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Transaction reference" hint="UPI reference or bank UTR, so the seller can match it">
+              <Field label="Transaction reference (optional)" hint="UPI reference or bank UTR, so the seller can match it">
                 <Input value={reference} maxLength={100} onChange={(e) => setReference(e.target.value)} />
               </Field>
               <Field label="Note (optional)"><Input value={note} maxLength={300} onChange={(e) => setNote(e.target.value)} /></Field>

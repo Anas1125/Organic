@@ -36,7 +36,7 @@ export default function PayOnDelivery({ order, onChange }) {
     e.preventDefault()
     setBusy(true)
     try {
-      onChange((await api.post(`/orders/${order.id}/paid`, { reference: ref.trim() })).data)
+      onChange((await api.post(`/orders/${order.id}/paid`, { reference: ref.trim() || null })).data)
       toast.success("Thanks! We'll confirm your payment shortly")
     } catch (err) {
       toast.error(errorMessage(err))
@@ -49,7 +49,7 @@ export default function PayOnDelivery({ order, onChange }) {
     return (
       <div className="flex items-start gap-3 rounded-2xl border border-brand-200 bg-brand-50 p-4 text-sm text-brand-900">
         <CheckCircle2 className="mt-0.5 size-5 shrink-0" />
-        <div><strong>Thanks — we're checking your payment.</strong> Reference {order.cod_reference}. You'll get an email once it's confirmed.</div>
+        <div><strong>Thanks — we're checking your payment.</strong>{order.cod_reference ? ` Reference ${order.cod_reference}.` : ''} You'll get an email once it's confirmed.</div>
       </div>
     )
   }
@@ -81,8 +81,8 @@ export default function PayOnDelivery({ order, onChange }) {
         <p className="mt-3">Our team will contact you with the payment details.</p>
       )}
       <form onSubmit={send} className="mt-4 flex flex-col gap-2 border-t border-amber-200 pt-4 sm:flex-row sm:items-end">
-        <Field label="Paid? Enter the UPI reference / UTR number" className="flex-1">
-          <Input value={ref} onChange={(e) => setRef(e.target.value)} minLength={4} maxLength={100} required placeholder="e.g. 412345678901" />
+        <Field label="Paid? Tap I've paid" hint="UPI reference is optional — the order number is already in the payment note" className="flex-1">
+          <Input value={ref} onChange={(e) => setRef(e.target.value)} maxLength={100} placeholder="UPI reference (optional)" />
         </Field>
         <Button type="submit" loading={busy}>I've paid</Button>
       </form>

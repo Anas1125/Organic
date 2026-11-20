@@ -554,7 +554,9 @@ class OrderOut(ORM):
 
 
 class CodPaidIn(BaseModel):
-    reference: str = Field(min_length=4, max_length=100)  # UPI transaction / UTR number
+    # Optional: the payment note already carries the order number (set by the QR code),
+    # which is enough for the team to find it in their UPI app.
+    reference: str | None = Field(default=None, max_length=100)
 
 
 class ApproveIn(BaseModel):

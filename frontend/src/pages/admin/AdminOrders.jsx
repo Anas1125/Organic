@@ -173,7 +173,10 @@ function AdminOrderPanel({ order, onChange }) {
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
           <span>
             {order.cod_claimed_at
-              ? <>The buyer says they paid {money(order.total)} by UPI. Reference <strong className="font-mono">{order.cod_reference}</strong> — check your bank / UPI app.</>
+              ? <>The buyer says they paid {money(order.total)} by UPI.{' '}
+                {order.cod_reference
+                  ? <>Reference <strong className="font-mono">{order.cod_reference}</strong> — check your bank / UPI app.</>
+                  : <>Look for the note <strong className="font-mono">Order {order.order_number}</strong> in your UPI app.</>}</>
               : <>Pay on delivery: waiting for the buyer to pay {money(order.total)} to your UPI.</>}
           </span>
           <Button size="sm" loading={busy} onClick={markReceived}>Mark payment received</Button>

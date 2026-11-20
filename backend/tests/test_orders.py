@@ -86,9 +86,9 @@ def test_pay_on_delivery_goes_to_marketplace(client, seller, admin, buyer, categ
     assert r.json()["payment_status"] == "pending"  # the seller didn't collect it
 
     # Buyer tells us they paid; the admin is emailed to check
-    assert client.post(f"/api/v1/orders/{oid}/paid", json={"reference": "x"}, headers=buyer).status_code == 422
-    r = client.post(f"/api/v1/orders/{oid}/paid", json={"reference": "UPI123456"}, headers=buyer)
-    assert r.status_code == 200 and r.json()["cod_reference"] == "UPI123456"
+    # The reference is optional (the QR's payment note already carries the order number)
+    r = client.post(f"/api/v1/orders/{oid}/paid", json={}, headers=buyer)
+    assert r.status_code == 200 and r.json()["cod_claimed_at"] and r.json()["cod_reference"] is None
     assert any(s.startswith("Buyer says they paid") for _, s in sent)
     # Admin confirms it arrived -> paid, buyer thanked
     r = client.patch(f"/api/v1/admin/orders/{oid}/status", json={"status": "delivered", "payment_status": "paid"}, headers=admin)

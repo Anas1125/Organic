@@ -203,7 +203,7 @@ def tell_us_paid(order_id: int, body: s.CodPaidIn, buyer: User = Depends(require
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "This order isn't waiting for a payment from you")
     if o.payment_status != PaymentStatus.PENDING:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "We've already received your payment")
-    o.cod_reference = body.reference.strip()
+    o.cod_reference = (body.reference or "").strip() or None
     o.cod_claimed_at = datetime.now(UTC)
     db.commit()
     db.refresh(o)

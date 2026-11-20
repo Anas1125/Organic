@@ -240,7 +240,8 @@ def buyer_says_paid(o: Order, admin_emails: list[str]) -> None:
         send_email(to, f"Buyer says they paid {o.order_number}", "Check this payment",
                    [f"<b>{esc(o.buyer.full_name)}</b> says they paid <b>{_money(o.total)}</b> for order "
                     f"{esc(o.order_number)} by UPI.",
-                    f"Reference: <b>{esc(o.cod_reference or '—')}</b>",
+                    (f"UPI reference: <b>{esc(o.cod_reference)}</b>" if o.cod_reference else
+                     f"No reference given — look for the note <b>Order {esc(o.order_number)}</b> in your UPI app."),
                     "Check it in your bank / UPI app, then mark the payment as received on the order."],
                    ("Open the order", _site(f"/admin/orders?open={o.id}")))
 
