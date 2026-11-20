@@ -46,7 +46,7 @@ def test_forgot_and_reset_password(client, buyer, monkeypatch):
 
 def test_taken_email_explains_what_to_do(client):
     register(client, "shop.owner@gmail.com")
-    body = {"email": "Shop.Owner@gmail.com", "password": PASSWORD, "full_name": "Shop Owner", "role": "seller",
+    body = {"email": "Shop.Owner@gmail.com", "password": PASSWORD, "full_name": "Shop Owner", "phone": "9876543210", "role": "seller",
             "seller": {"business_name": "Owner Farm"}}
     r = client.post("/api/v1/auth/register", json=body)
     assert r.status_code == 409

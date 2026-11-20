@@ -141,3 +141,16 @@ def test_buyer_can_cancel_enquiry(client, seller, admin, buyer, category):
     o = client.post("/api/v1/orders/checkout", json=ADDRESS, headers=buyer).json()[0]
     assert client.post(f"/api/v1/orders/{o['id']}/cancel", headers=buyer).json()["status"] == "cancelled"
     assert client.get(f"/api/v1/products/{pid}").json()["stock"] == 10
+
+
+def test_seller_never_sees_declined_or_withdrawn_enquiries(client, seller, admin, buyer, category):
+    pid = make_product(client, seller, admin, category, stock=20)
+    ids = []
+    for _ in range(2):
+        client.post("/api/v1/cart/items", json={"product_id": pid, "quantity": 1}, headers=buyer)
+        ids.append(client.post("/api/v1/orders/checkout", json=ADDRESS, headers=buyer).json()[0]["id"])
+    client.post(f"/api/v1/admin/orders/{ids[0]}/decline", json={"reason": "No stock"}, headers=admin)
+    client.post(f"/api/v1/orders/{ids[1]}/cancel", headers=buyer)
+    assert client.get("/api/v1/seller/orders", headers=seller).json() == []
+    assert client.get(f"/api/v1/seller/orders/{ids[0]}", headers=seller).status_code == 404
+    assert client.get("/api/v1/seller/stats", headers=seller).json()["total_orders"] == 0

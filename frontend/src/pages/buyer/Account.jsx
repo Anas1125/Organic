@@ -63,7 +63,7 @@ export function AccountForm() {
       <form onSubmit={save} className="card space-y-4 p-5 sm:p-6">
         <h2 className="font-semibold">Personal details</h2>
         <Field label="Full name"><Input required minLength={2} value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} /></Field>
-        <Field label="Phone"><Input type="tel" pattern="[0-9+\- ]{7,20}" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></Field>
+        <Field label={<>Mobile number <span className="text-red-600">*</span></>} hint="Our team calls this number to confirm orders"><Input type="tel" inputMode="tel" autoComplete="tel" required pattern="[0-9+\-() ]{10,20}" title="10-digit mobile number" placeholder="98765 43210" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></Field>
         {user.role === 'buyer' && (
           <Field label="Account type">
             <Select value={form.buyer_type} onChange={(e) => setForm({ ...form, buyer_type: e.target.value })}>

@@ -320,7 +320,7 @@ export function Register() {
     setBusy(true)
     setError('')
     try {
-      const body = { ...form, phone: form.phone || null, role }
+      const body = { ...form, phone: form.phone.trim(), role }
       if (role === 'seller') body.seller = blankToNull(seller)
       const res = await register(body)
       if (res.otp) return setOtp(res.otp)
@@ -343,7 +343,7 @@ export function Register() {
         <Field label="Full name"><Input required minLength={2} autoComplete="name" value={form.full_name} onChange={set('full_name')} /></Field>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Email"><Input type="email" required autoComplete="email" value={form.email} onChange={set('email')} /></Field>
-          <Field label="Phone" hint="Optional"><Input type="tel" autoComplete="tel" pattern="[0-9+\- ]{7,20}" value={form.phone} onChange={set('phone')} /></Field>
+          <Field label={<>Mobile number <span className="text-red-600">*</span></>} hint="We call to confirm orders"><Input type="tel" inputMode="tel" autoComplete="tel" required pattern="[0-9+\-() ]{10,20}" title="10-digit mobile number" placeholder="98765 43210" value={form.phone} onChange={set('phone')} /></Field>
         </div>
         <Field label="Password" hint="At least 8 characters"><PasswordInput required minLength={8} autoComplete="new-password" value={form.password} onChange={set('password')} /></Field>
 

@@ -1,6 +1,7 @@
 import { ExternalLink, LogOut, Menu, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import PhoneReminder from '../components/PhoneReminder'
 import { Logo } from '../components/Brand'
 import { useAuth } from '../context/AuthContext'
 
@@ -72,6 +73,7 @@ export default function DashboardLayout({ title, nav, banner }) {
 
       <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
         {banner}
+        <PhoneReminder className="mb-5" />
         <Outlet />
       </main>
     </div>

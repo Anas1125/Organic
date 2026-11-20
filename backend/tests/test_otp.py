@@ -6,7 +6,7 @@ import pytest
 
 from app.core.config import settings
 
-SIGNUP = {"email": "priya@shop.in", "password": "secret-pass-1", "full_name": "Priya", "role": "buyer"}
+SIGNUP = {"email": "priya@shop.in", "password": "secret-pass-1", "full_name": "Priya", "phone": "9876543210", "role": "buyer"}
 
 
 @pytest.fixture

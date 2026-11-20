@@ -21,7 +21,7 @@ from app.models import (
     ProductImage,
     SellerProfile,
 )
-from app.models.enums import GIRecordType, GIVerification, OrderStatus, ReviewStatus
+from app.models.enums import GIRecordType, GIVerification, OrderStatus, PaymentMethod, PaymentStatus, ReviewStatus
 from app.services.orders import ORDER_LOAD, change_status
 from app.services.pricing import validate_tiers
 from app.services.queries import PRODUCT_LOAD
@@ -34,6 +34,20 @@ router = APIRouter(prefix="/seller", tags=["Seller"])
 
 # The seller only hears about an order once the admin approved it (and, online, it's paid).
 HIDDEN_FROM_SELLER = (OrderStatus.ENQUIRY, OrderStatus.AWAITING_PAYMENT)
+# ...and never about enquiries that ended before reaching them (declined or withdrawn).
+NEVER_REACHED_SELLER = (Order.status == OrderStatus.CANCELLED) & (
+    (Order.approved_at.is_(None) & Order.decline_reason.is_not(None))  # enquiry declined / withdrawn
+    | ((Order.payment_method == PaymentMethod.ONLINE) & (Order.payment_status == PaymentStatus.PENDING))  # never paid
+)
+SELLER_VISIBLE = Order.status.not_in(HIDDEN_FROM_SELLER) & ~NEVER_REACHED_SELLER
+
+
+def _never_reached(o: Order) -> bool:
+    """Same rule as NEVER_REACHED_SELLER, for one loaded order."""
+    return o.status == OrderStatus.CANCELLED and bool(
+        (o.approved_at is None and o.decline_reason)
+        or (o.payment_method == PaymentMethod.ONLINE and o.payment_status == PaymentStatus.PENDING)
+    )
 
 MAX_IMAGES = media.MAX_IMAGES
 # Changing these on an approved product sends it back for admin review.
@@ -65,6 +79,8 @@ def update_profile(
 ):
     for k, v in body.model_dump().items():
         setattr(seller, k, v)
+    if not seller.user.phone:  # older accounts made before a phone was required
+        seller.user.phone = body.phone
     # A rejected seller who fixes their details goes back into the review queue.
     if seller.status == ReviewStatus.REJECTED:
         seller.status = ReviewStatus.PENDING
@@ -305,7 +321,7 @@ def my_orders(
     automation.run(db)
     stmt = (
         select(Order)
-        .where(Order.seller_id == seller.id, Order.status.not_in(HIDDEN_FROM_SELLER))
+        .where(Order.seller_id == seller.id, SELLER_VISIBLE)
         .options(*ORDER_LOAD)
     )
     if status_filter:
@@ -322,7 +338,7 @@ def my_order(
     o = db.scalar(
         select(Order).where(Order.id == order_id, Order.seller_id == seller.id).options(*ORDER_LOAD)
     )
-    if not o or o.status in HIDDEN_FROM_SELLER:
+    if not o or o.status in HIDDEN_FROM_SELLER or _never_reached(o):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Order not found")
     return order_out(o)
 
@@ -336,7 +352,7 @@ def update_order_status(
 ):
     o = db.scalar(
         select(Order)
-        .where(Order.id == order_id, Order.seller_id == seller.id, Order.status.not_in(HIDDEN_FROM_SELLER))
+        .where(Order.id == order_id, Order.seller_id == seller.id, SELLER_VISIBLE)
         .options(*ORDER_LOAD)
         .with_for_update(of=Order)
     )
@@ -357,7 +373,7 @@ def bulk_status(
     its own; ones that can't move are reported back instead of stopping the rest."""
     orders = db.scalars(
         select(Order)
-        .where(Order.id.in_(body.order_ids), Order.seller_id == seller.id, Order.status.not_in(HIDDEN_FROM_SELLER))
+        .where(Order.id.in_(body.order_ids), Order.seller_id == seller.id, SELLER_VISIBLE)
         .options(*ORDER_LOAD)
         .with_for_update(of=Order)
     ).all()
@@ -385,7 +401,7 @@ def my_stats(seller: SellerProfile = Depends(get_current_seller), db: Session = 
     by_status = dict(
         db.execute(
             select(Order.status, func.count(Order.id))
-            .where(Order.seller_id == seller.id, Order.status.not_in(HIDDEN_FROM_SELLER))
+            .where(Order.seller_id == seller.id, SELLER_VISIBLE)
             .group_by(Order.status)
         ).all()
     )

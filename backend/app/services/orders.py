@@ -192,6 +192,8 @@ def change_status(
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Approve the enquiry first")
     if order.status == OrderStatus.AWAITING_PAYMENT and new_status != OrderStatus.CANCELLED:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "This order hasn't been paid yet")
+    if order.status == OrderStatus.ENQUIRY and new_status == OrderStatus.CANCELLED and not order.decline_reason:
+        order.decline_reason = "Cancelled before it was confirmed"  # the seller never saw it
     refund = False
     if new_status == OrderStatus.CANCELLED:
         _restock(db, order)

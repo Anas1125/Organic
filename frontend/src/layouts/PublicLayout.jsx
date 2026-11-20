@@ -2,6 +2,7 @@ import { Home, LayoutGrid, LogOut, Package, Search, ShoppingCart, User } from 'l
 import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Logo } from '../components/Brand'
+import PhoneReminder from '../components/PhoneReminder'
 import ContactDetails, { contactItems } from '../components/ContactDetails'
 import SearchBar from '../components/SearchBar'
 import { homeFor, useAuth } from '../context/AuthContext'
@@ -182,6 +183,7 @@ export default function PublicLayout() {
     <div className="flex min-h-screen flex-col">
       <Navbar />
       <main className="flex-1 pb-20 md:pb-0">
+        <div className="container-page empty:hidden [&:has(>*)]:pt-4"><PhoneReminder /></div>
         <Outlet />
       </main>
       <Footer />

@@ -45,7 +45,7 @@ export default function SellerProfile() {
         <p className="-mt-2 text-sm text-muted">Shown to buyers on your storefront.</p>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Business / farm name"><Input required minLength={2} value={form.business_name} onChange={set('business_name')} /></Field>
-          <Field label="Business phone"><Input type="tel" pattern="[0-9+\- ]{7,20}" value={form.phone} onChange={set('phone')} /></Field>
+          <Field label={<>Business phone <span className="text-red-600">*</span></>} hint="Our team calls this number about orders"><Input type="tel" inputMode="tel" required pattern="[0-9+\-() ]{10,20}" title="10-digit mobile number" placeholder="98765 43210" value={form.phone} onChange={set('phone')} /></Field>
         </div>
         <Field label="About your business"><Textarea rows={4} value={form.description} onChange={set('description')} /></Field>
         <Field label="Address"><Input value={form.address} onChange={set('address')} /></Field>

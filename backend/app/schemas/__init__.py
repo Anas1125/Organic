@@ -1,8 +1,9 @@
+import re
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 from app.models.enums import UNITS
 
@@ -34,11 +35,36 @@ class SellerRegistration(BaseModel):
     pincode: str | None = Field(default=None, pattern=r"^\d{6}$")
 
 
+def _phone(v: str) -> str:
+    """Check a mobile number and store it in one format.
+    Indian numbers: 10 digits starting 6–9 (with or without +91 / 0) -> "+91 98765 43210".
+    Other countries: + and 8–15 digits."""
+    raw = re.sub(r"[\s\-().]", "", v or "")
+    digits = raw.lstrip("+")
+    if not digits.isdigit():
+        raise ValueError("Enter a valid mobile number (digits only)")
+    if raw.startswith("+") and not raw.startswith("+91"):
+        if 8 <= len(digits) <= 15:
+            return raw
+        raise ValueError("Enter a valid mobile number with country code")
+    if digits.startswith("91") and len(digits) == 12:
+        digits = digits[2:]
+    elif digits.startswith("0") and len(digits) == 11:
+        digits = digits[1:]
+    if len(digits) != 10 or digits[0] not in "6789":
+        raise ValueError("Enter a valid 10-digit mobile number")
+    return f"+91 {digits[:5]} {digits[5:]}"
+
+
+# A mobile number, checked and tidied (see _phone).
+Phone = Annotated[str, AfterValidator(_phone)]
+
+
 class RegisterIn(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
     full_name: str = Field(min_length=2, max_length=120)
-    phone: str | None = Field(default=None, pattern=r"^[0-9+\- ]{7,20}$")
+    phone: Phone  # required: the team calls buyers and sellers about enquiries
     role: Literal["buyer", "seller"]
     buyer_type: Literal["individual", "wholesale"] = "individual"
     seller: SellerRegistration | None = None
@@ -109,7 +135,7 @@ class OtpResendIn(BaseModel):
 class UserUpdate(BaseModel):
     email: EmailStr | None = None  # needs current_password
     full_name: str | None = Field(default=None, min_length=2, max_length=120)
-    phone: str | None = Field(default=None, pattern=r"^[0-9+\- ]{7,20}$")
+    phone: Phone | None = None  # can be changed, not removed
     buyer_type: Literal["individual", "wholesale"] | None = None
     current_password: str | None = None
     new_password: str | None = Field(default=None, min_length=8, max_length=128)
@@ -129,7 +155,7 @@ class AdminCreate(BaseModel):
 
 
 class SellerProfileIn(SellerRegistration):
-    phone: str | None = Field(default=None, pattern=r"^[0-9+\- ]{7,20}$")
+    phone: Phone  # required: the team calls sellers to agree each enquiry
 
 
 class SellerProfileOut(ORM):

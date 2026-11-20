@@ -78,7 +78,7 @@ def admin(client):
 
 
 def register(client, email, role="buyer", **extra):
-    body = {"email": email, "password": PASSWORD, "full_name": "Test User", "role": role, **extra}
+    body = {"email": email, "password": PASSWORD, "full_name": "Test User", "phone": "9876543210", "role": role, **extra}
     if role == "seller":
         body.setdefault("seller", {"business_name": f"{email} Farm"})
     r = client.post("/api/v1/auth/register", json=body)
