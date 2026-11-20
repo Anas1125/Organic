@@ -105,7 +105,7 @@ function Popular() {
         : loading ? <ProductCardSkeleton count={4} />
         : data.items.length ? (
           <ScrollRow label="New products">
-            {data.items.map((p) => <div key={p.id} className="w-[210px] shrink-0 snap-start sm:w-[260px]"><ProductCard product={p} /></div>)}
+            {data.items.map((p) => <div key={p.id} className="flex w-[210px] shrink-0 snap-start sm:w-[260px]"><ProductCard product={p} /></div>)}
           </ScrollRow>
         )
         : <p className="card p-8 text-center text-sm text-muted">Products will appear here once sellers list them.</p>}

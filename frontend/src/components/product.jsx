@@ -96,7 +96,7 @@ export function ProductCard({ product }) {
   const { addToCart, busy } = useAddToCart()
   const out = product.stock < product.min_order_qty
   return (
-    <div className="card group flex flex-col overflow-hidden transition hover:-translate-y-0.5 hover:shadow-lift">
+    <div className="card group flex h-full flex-col overflow-hidden transition hover:-translate-y-0.5 hover:shadow-lift">
       <Link to={`/products/${product.id}`} className="relative block aspect-[4/3.4] overflow-hidden bg-canvas">
         <ProductImage product={product} className="transition duration-300 group-hover:scale-[1.03]" />
         <div className="absolute left-2.5 top-2.5 flex flex-col items-start gap-1">
@@ -110,37 +110,42 @@ export function ProductCard({ product }) {
         )}
       </Link>
       <div className="flex flex-1 flex-col p-3 sm:p-4">
-        <Link to={`/products/${product.id}`} className="line-clamp-2 text-sm font-semibold leading-snug hover:text-brand-700 sm:text-[15px]">
+        <Link to={`/products/${product.id}`} className="line-clamp-2 min-h-[2.75em] text-sm font-semibold leading-snug hover:text-brand-700 sm:text-[15px]">
           {product.name}
         </Link>
         <Link to={`/sellers/${product.seller.id}`} className="mt-0.5 truncate text-xs text-muted hover:text-brand-700">
           {product.seller.business_name}
         </Link>
-        {product.origin && (
-          <div className="mt-1 hidden items-center gap-1 truncate text-xs text-muted sm:flex">
-            <MapPin className="size-3 shrink-0" /> {product.origin}
-          </div>
-        )}
-        <div className="mt-auto flex items-end justify-between gap-2 pt-3">
-          <div>
+        <div className="mt-1 hidden h-4 items-center gap-1 truncate text-xs text-muted sm:flex">
+          {product.origin && <><MapPin className="size-3 shrink-0" /> {product.origin}</>}
+        </div>
+        {/* Same lines on every card, so prices and buttons line up across a row. */}
+        <div className="mt-auto pt-3">
+          <div className="whitespace-nowrap">
             <span className="text-base font-bold text-brand-800">{money(product.price)}</span>
             <span className="text-xs text-muted"> /{product.unit}</span>
-            {product.min_order_qty > 1 && <div className="text-[11px] text-muted">Min order {product.min_order_qty} {product.unit}</div>}
-            {bestTier(product) && (
-              <div className="mt-1 inline-flex rounded-md bg-brand-50 px-1.5 py-0.5 text-[11px] font-semibold text-brand-700">
-                {money(bestTier(product).unit_price)} at {bestTier(product).min_qty}+
-              </div>
-            )}
           </div>
-          <button
-            onClick={() => addToCart(product, product.min_order_qty)}
-            disabled={busy || out}
-            className="grid size-9 shrink-0 place-items-center rounded-full bg-brand-800 text-white shadow-sm transition hover:bg-brand-900 disabled:opacity-40"
-            aria-label={`Add ${product.name} to cart`}
-            title={out ? 'Out of stock' : 'Add to cart'}
-          >
-            <Plus className="size-4" strokeWidth={2.5} />
-          </button>
+          <div className="flex items-end justify-between gap-2">
+            <div className="min-w-0">
+              <div className="truncate text-[11px] text-muted">Min order {product.min_order_qty} {product.unit}</div>
+              <div className="mt-1 h-[22px]">
+                {bestTier(product) && (
+                  <span className="inline-flex whitespace-nowrap rounded-md bg-brand-50 px-1.5 py-0.5 text-[11px] font-semibold text-brand-700">
+                    {money(bestTier(product).unit_price)} at {bestTier(product).min_qty}+
+                  </span>
+                )}
+              </div>
+            </div>
+            <button
+              onClick={() => addToCart(product, product.min_order_qty)}
+              disabled={busy || out}
+              className="grid size-9 shrink-0 place-items-center rounded-full bg-brand-800 text-white shadow-sm transition hover:bg-brand-900 disabled:opacity-40"
+              aria-label={`Add ${product.name} to cart`}
+              title={out ? 'Out of stock' : 'Add to cart'}
+            >
+              <Plus className="size-4" strokeWidth={2.5} />
+            </button>
+          </div>
         </div>
       </div>
     </div>
