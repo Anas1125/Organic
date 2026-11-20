@@ -107,6 +107,7 @@ export function AdminSellers() {
   const [tab, setTab] = useState('pending')
   const { data, setData, loading, error, reload } = useFetch('/admin/sellers')
   const [rejecting, setRejecting] = useState(null)
+  const [q, setQ] = useState('')
 
   const review = async (sp, status, reason) => {
     try {
@@ -119,22 +120,32 @@ export function AdminSellers() {
     }
   }
 
-  const count = (s) => data?.filter((x) => x.status === s).length
-  const rows = (data || []).filter((x) => !tab || x.status === tab)
+  // Search business, owner, email, phone and place; the tab counts follow the search.
+  const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean)
+  const matches = (data || []).filter((x) => {
+    const text = [x.business_name, x.owner_name, x.owner_email, x.phone, x.city, x.state, x.description].join(' ').toLowerCase()
+    return words.every((w) => text.includes(w))
+  })
+  const count = (s) => (data ? matches.filter((x) => x.status === s).length : undefined)
+  const rows = matches.filter((x) => !tab || x.status === tab)
 
   return (
     <>
       <PageHeader title="Sellers" subtitle="Approve sellers before they can list products." />
-      <div className="mb-4">
-        <Tabs value={tab} onChange={setTab} options={[
+      <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <div className="min-w-0"><Tabs value={tab} onChange={setTab} options={[
           { value: 'pending', label: 'Pending', count: count('pending') },
           { value: 'approved', label: 'Approved', count: count('approved') },
           { value: 'rejected', label: 'Rejected', count: count('rejected') },
-          { value: '', label: 'All', count: data?.length },
-        ]} />
+          { value: '', label: 'All', count: data ? matches.length : undefined },
+        ]} /></div>
+        <div className="relative w-full shrink-0 xl:w-80">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
+          <input type="search" className="input pl-9" placeholder="Search business, owner, email or place" value={q} onChange={(e) => { setQ(e.target.value); if (e.target.value.trim() && !q.trim()) setTab('') }} aria-label="Search sellers" />
+        </div>
       </div>
       {error ? <ErrorBox message={error} onRetry={reload} /> : loading ? <Spinner /> : !rows.length ? (
-        <div className="card"><EmptyState icon={Store} title="No sellers here" /></div>
+        <div className="card"><EmptyState icon={Store} title={q.trim() ? `No sellers match “${q.trim()}”` : 'No sellers here'} text={q.trim() && tab ? 'Try the All tab, or a different search.' : undefined} /></div>
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
           {rows.map((sp) => (
