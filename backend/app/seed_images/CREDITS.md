@@ -48,7 +48,7 @@ Licences: CC0 / public domain need no credit; CC BY and CC BY-SA require the cre
 | thanjavur-art-plate.webp | [Tanjore Plate V1.jpg](https://commons.wikimedia.org/wiki/File:Tanjore_Plate_V1.jpg) | Iramuthusamy | CC BY-SA 3.0 |
 | thanjavur-doll.webp | [A Tanjore doll.jpg](https://commons.wikimedia.org/wiki/File:A_Tanjore_doll.jpg) | Alamelu Sankaranarayanan | CC BY-SA 3.0 |
 | thanjavur-painting.webp | [Thanjavur art from south India.jpg](https://commons.wikimedia.org/wiki/File:Thanjavur_art_from_south_India.jpg) | Klien rai | CC BY-SA 4.0 |
-| thirubuvanam-silk.webp | [Saree Soiree 6.jpg](https://commons.wikimedia.org/wiki/File:Saree_Soiree_6.jpg) | DOLL CUPCAKE | CC BY-SA 4.0 |
+| thirubuvanam-silk.webp | [Traditional Silk Saree in Dark Green with Gold Zari and Maroon Border.jpg](https://commons.wikimedia.org/wiki/File:Traditional_Silk_Saree_in_Dark_Green_with_Gold_Zari_and_Maroon_Border.jpg) | Pachiyappassilks | CC0 (cropped) |
 | thooyamalli-rice.webp | [WhiteRice.jpg](https://commons.wikimedia.org/wiki/File:WhiteRice.jpg) | Sanjay Acharya | CC BY-SA 3.0 |
 | toda-embroidery.webp | [Toda embroidery and poothkuli shawls, National Crafts Museum, New Delhi.jpg](https://commons.wikimedia.org/wiki/File:Toda_embroidery_and_poothkuli_shawls,_National_Crafts_Museum,_New_Delhi.jpg) | Niranjan Ramamurthy | CC BY-SA 4.0 |
 | udangudi-karupatti.webp | [Jaggery cubes.jpg](https://commons.wikimedia.org/wiki/File:Jaggery_cubes.jpg) | Mangosapiens | CC BY-SA 4.0 |
