@@ -47,7 +47,7 @@ export function LinesTable({ lines }) {
                 <div className="font-medium">{ln.order_number}</div>
                 <div className="text-xs text-muted">{ln.kind === 'reversal' ? 'Refunded after it was paid out' : `Delivered ${date(ln.delivered_at)}`}</div>
               </td>
-              <td className="py-2.5 pr-3">{ln.payment_method === 'online' ? 'Online (to platform)' : 'Cash (to seller)'}</td>
+              <td className="py-2.5 pr-3">{ln.payment_method === 'online' ? 'Online (to marketplace)' : ln.pay_to_marketplace ? 'On delivery (to marketplace)' : 'Cash (to seller)'}</td>
               <td className="py-2.5 pr-3 text-right">{money(ln.total)}</td>
               <td className="py-2.5 pr-3 text-right text-muted">{ln.kind === 'reversal' ? '—' : `${money(ln.commission)} (${Number(ln.commission_rate)}%)`}</td>
               <td className={`py-2.5 text-right font-semibold ${Number(ln.amount) < 0 ? 'text-red-700' : 'text-brand-800'}`}>{money(ln.amount)}</td>

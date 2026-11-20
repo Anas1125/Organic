@@ -59,7 +59,7 @@ function EnquiryPanel({ order, onChange }) {
         <h3 className="font-semibold">{waiting ? `Waiting for ${order.seller.business_name} to accept ${Number(order.commission_rate)}% commission` : 'New enquiry — waiting for you'}</h3>
         <p className="mt-0.5 text-sm text-ink/70">
           {waiting
-            ? 'The seller has been emailed the offer and sees it in their Seller hub. You can send a new rate, or decline the order for the buyer.'
+            ? `The seller has been emailed the offer and sees it in their Seller hub.${order.answer_by ? ` If they don't answer by ${dateTime(order.answer_by)}, it's cancelled automatically and the buyer is told.` : ''} You can send a new rate, or decline the order for the buyer.`
             : 'Contact the seller to confirm stock and price, and agree your commission. When you approve, the seller is asked to accept that commission; only then is the order confirmed.'}
           {order.payment_method === 'online' ? ' The buyer pays online once the seller accepts.' : ' Cash on delivery: the seller collects the money.'}
         </p>
@@ -121,6 +121,19 @@ function AdminOrderPanel({ order, onChange }) {
     }
   }
 
+  const markReceived = async () => {
+    if (!window.confirm(`Confirm you received ${money(order.total)} for ${order.order_number}? The buyer will be emailed.`)) return
+    setBusy(true)
+    try {
+      onChange((await api.patch(`/admin/orders/${order.id}/status`, { status: order.status, payment_status: 'paid' })).data)
+      toast.success('Payment marked as received')
+    } catch (e) {
+      toast.error(errorMessage(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const save = async () => {
     if (status === 'cancelled' && !window.confirm('Cancel this order? Stock will be returned to the seller.')) return
     setBusy(true)
@@ -154,6 +167,16 @@ function AdminOrderPanel({ order, onChange }) {
         <div><h3 className="mb-1 text-sm font-semibold">Items · {order.seller.business_name}</h3><OrderItemsTable order={order} /></div>
         <div><h3 className="mb-1 text-sm font-semibold">Ship to</h3><ShippingBlock order={order} /><div className="mt-2 text-xs text-muted">Buyer: {order.buyer_name} · {order.buyer_email}</div></div>
       </div>
+      {order.payment_method === 'cod' && order.pay_to_marketplace && order.payment_status === 'pending' && ['confirmed', 'packed', 'shipped', 'delivered'].includes(order.status) && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+          <span>
+            {order.cod_claimed_at
+              ? <>The buyer says they paid {money(order.total)} by UPI. Reference <strong className="font-mono">{order.cod_reference}</strong> — check your bank / UPI app.</>
+              : <>Pay on delivery: waiting for the buyer to pay {money(order.total)} to your UPI.</>}
+          </span>
+          <Button size="sm" loading={busy} onClick={markReceived}>Mark payment received</Button>
+        </div>
+      )}
       {canRefund && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-canvas p-3 text-sm">
           <span>{order.payment_status === 'refund_failed' ? <>The last refund attempt failed{order.refund_error ? <>: <strong>{order.refund_error}</strong></> : '.'}</> : 'Paid online. For returns or problems you can refund the buyer in full.'}</span>
@@ -168,7 +191,7 @@ function AdminOrderPanel({ order, onChange }) {
             </Select>
           </Field>
           {order.payment_method === 'cod' ? (
-            <Field label="Payment (cash on delivery)">
+            <Field label={order.pay_to_marketplace ? "Payment (on delivery, to you)" : "Payment (cash on delivery)"}>
               <Select value={payment} onChange={(e) => setPayment(e.target.value)}>
                 <option value="pending">Pending</option><option value="paid">Paid</option><option value="refunded">Refunded</option>
               </Select>
@@ -191,14 +214,17 @@ export function AdminOrders() {
   const { data, setData, loading, error, reload } = useFetch('/admin/orders')
   const [openId, setOpenId] = useState(Number(params.get('open')) || null)
   const open = data?.find((o) => o.id === openId)
-  const count = (s) => data?.filter((o) => o.status === s).length
-  const rows = (data || []).filter((o) => (!tab || o.status === tab) && `${o.order_number} ${o.buyer_name} ${o.seller.business_name}`.toLowerCase().includes(q.toLowerCase()))
+  // "Payment due": pay-on-delivery orders whose money hasn't reached the marketplace yet.
+  const due = (o) => o.payment_method === 'cod' && o.pay_to_marketplace && o.payment_status === 'pending' && ['confirmed', 'packed', 'shipped', 'delivered'].includes(o.status)
+  const inTab = (o, t) => (t === 'payment_due' ? due(o) : o.status === t)
+  const count = (s) => data?.filter((o) => inTab(o, s)).length
+  const rows = (data || []).filter((o) => (!tab || inTab(o, tab)) && `${o.order_number} ${o.buyer_name} ${o.seller.business_name}`.toLowerCase().includes(q.toLowerCase()))
 
   return (
     <>
       <PageHeader title="All orders" subtitle="New orders arrive as enquiries: agree terms with the seller, then approve or decline. Admins can also override any order’s status or payment." />
       <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <Tabs value={tab} onChange={setTab} options={[{ value: '', label: 'All', count: data?.length }, ...['enquiry', 'seller_review', 'awaiting_payment', ...ORDER_STEPS, 'cancelled'].map((s) => ({ value: s, label: { enquiry: 'Enquiries', seller_review: 'Awaiting seller', awaiting_payment: 'Unpaid' }[s] || s[0].toUpperCase() + s.slice(1), count: count(s) }))]} />
+        <Tabs value={tab} onChange={setTab} options={[{ value: '', label: 'All', count: data?.length }, ...['enquiry', 'seller_review', 'payment_due', 'awaiting_payment', ...ORDER_STEPS, 'cancelled'].map((s) => ({ value: s, label: { enquiry: 'Enquiries', seller_review: 'Awaiting seller', payment_due: 'Payment due', awaiting_payment: 'Unpaid online' }[s] || s[0].toUpperCase() + s.slice(1), count: count(s) }))]} />
         <div className="relative lg:w-64">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
           <input className="input pl-9" placeholder="Order no., buyer or seller" value={q} onChange={(e) => setQ(e.target.value)} />

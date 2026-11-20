@@ -6,7 +6,7 @@ import { OrderItemsTable, OrderMeta, OrderTimeline, ShippingBlock } from '../../
 import { Button, EmptyState, ErrorBox, Field, Input, Modal, PageHeader, Spinner, StatusBadge, Tabs, Textarea } from '../../components/ui'
 import { useToast } from '../../context/ToastContext'
 import useFetch from '../../hooks/useFetch'
-import { date, money } from '../../lib/format'
+import { date, dateTime, money } from '../../lib/format'
 
 const NEXT = { pending: 'confirmed', confirmed: 'packed', packed: 'shipped', shipped: 'delivered' }
 const NEXT_LABEL = { confirmed: 'Confirm order', packed: 'Mark as packed', shipped: 'Mark as shipped', delivered: 'Mark as delivered' }
@@ -20,6 +20,7 @@ function OfferPanel({ order, onChange }) {
   const rate = Number(order.commission_rate || 0)
   const commission = Math.round(Number(order.subtotal) * rate) / 100
   const online = order.payment_method === 'online'
+  const toMarketplace = online || order.pay_to_marketplace
 
   const act = async (what, call, done) => {
     setBusy(what)
@@ -42,20 +43,23 @@ function OfferPanel({ order, onChange }) {
         <Handshake className="mt-0.5 size-5 shrink-0 text-amber-800" />
         <div>
           <h3 className="font-semibold">Please accept this order</h3>
-          <p className="mt-0.5 text-sm text-ink/70">The order is only confirmed once you accept the marketplace commission below.</p>
+          <p className="mt-0.5 text-sm text-ink/70">
+            The order is only confirmed once you accept the marketplace commission below.
+            {order.answer_by && <> Please answer by <strong>{dateTime(order.answer_by)}</strong>, or it's cancelled automatically.</>}
+          </p>
         </div>
       </div>
       <dl className="grid gap-2 rounded-xl bg-white p-3 text-sm sm:grid-cols-3">
         <div><dt className="text-xs text-muted">Order value</dt><dd className="font-semibold">{money(order.subtotal)}</dd></div>
         <div><dt className="text-xs text-muted">Commission</dt><dd className="font-semibold">{rate}% · {money(commission)}</dd></div>
         <div>
-          <dt className="text-xs text-muted">{online ? 'You receive (after delivery)' : 'You collect in cash'}</dt>
-          <dd className="font-semibold text-brand-800">{money(online ? Number(order.total) - commission : order.total)}</dd>
+          <dt className="text-xs text-muted">You receive (after delivery)</dt>
+          <dd className="font-semibold text-brand-800">{money(toMarketplace ? Number(order.total) - commission : order.total)}</dd>
         </div>
       </dl>
       <p className="text-xs text-muted">
-        {online
-          ? 'The buyer pays online after you accept. Ship it once it shows as Confirmed; your share is paid out after delivery.'
+        {toMarketplace
+          ? `The buyer pays the marketplace ${online ? 'online' : 'by UPI on delivery'} — please don't collect any money from the buyer. Ship it once it shows as Confirmed; the marketplace pays you ${money(Number(order.total) - commission)} after delivery (see your Payouts page).`
           : `Cash on delivery: you collect ${money(order.total)} from the buyer and pay ${money(commission)} commission to the marketplace (it's settled on your Payouts page).`}
       </p>
       {!declining ? (

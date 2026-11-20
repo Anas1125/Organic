@@ -56,6 +56,7 @@ class LineOut(BaseModel):
     order_number: str
     kind: str
     payment_method: str
+    pay_to_marketplace: bool = False
     delivered_at: datetime | None
     total: Decimal
     commission_rate: Decimal
@@ -121,7 +122,8 @@ def _lines_out(lines: list[svc.Line]) -> list[LineOut]:
     return [
         LineOut(
             order_id=ln.order.id, order_number=ln.order.order_number, kind=ln.kind,
-            payment_method=ln.order.payment_method, delivered_at=ln.order.delivered_at, total=ln.order.total,
+            payment_method=ln.order.payment_method, pay_to_marketplace=ln.order.pay_to_marketplace,
+            delivered_at=ln.order.delivered_at, total=ln.order.total,
             commission_rate=ln.order.commission_rate, commission=ln.commission, amount=ln.amount,
         )
         for ln in lines
@@ -217,6 +219,31 @@ def seller_payouts(seller_id: int, db: Session = Depends(get_db)):
 def settle(seller_id: int, body: SettleIn, admin: User = Depends(require_admin), db: Session = Depends(get_db)):
     p = svc.settle(db, seller_id, body.amount, (body.reference or "").strip() or None, (body.note or "").strip() or None, admin)
     return next(h for h in _history(db, seller_id, limit=5) if h.id == p.id)
+
+
+class PaymentDetails(BaseModel):
+    payment_upi: str | None = Field(default=None, max_length=100, pattern=r"^[A-Za-z0-9._-]{2,64}@[A-Za-z][A-Za-z0-9]{1,30}$")
+    payment_payee: str | None = Field(default=None, max_length=100)
+
+    @field_validator("*", mode="before")
+    @classmethod
+    def _blank(cls, v):
+        return (v.strip() or None) if isinstance(v, str) else v
+
+
+@router.get("/admin/payment-details", response_model=PaymentDetails, dependencies=[Depends(require_admin)])
+def get_payment_details(db: Session = Depends(get_db)):
+    row = get_settings_row(db)
+    return PaymentDetails(payment_upi=row.payment_upi, payment_payee=row.payment_payee)
+
+
+@router.put("/admin/payment-details", response_model=PaymentDetails, dependencies=[Depends(require_admin)])
+def set_payment_details(body: PaymentDetails, db: Session = Depends(get_db)):
+    """The UPI ID buyers pay on delivery (shown on their order page with a QR code)."""
+    row = get_settings_row(db)
+    row.payment_upi, row.payment_payee = body.payment_upi, body.payment_payee
+    db.commit()
+    return body
 
 
 @router.get("/admin/payouts-commission", response_model=CommissionIn, dependencies=[Depends(require_admin)])

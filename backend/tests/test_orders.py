@@ -71,13 +71,43 @@ def test_status_flow_and_cancel_restocks(client, seller, admin, buyer, category)
     assert client.get(f"/api/v1/products/{pid}").json()["stock"] == 10
 
 
-def test_delivered_cod_marked_paid(client, seller, admin, buyer, category):
+def test_pay_on_delivery_goes_to_marketplace(client, seller, admin, buyer, category, monkeypatch):
+    sent = []
+    monkeypatch.setattr("app.services.notify.send_email", lambda to, subject, *a, **k: sent.append((to, subject)))
+    client.put("/api/v1/admin/payment-details", json={"payment_upi": "terramart@okhdfc", "payment_payee": "Terra Mart"}, headers=admin)
     pid = make_product(client, seller, admin, category)
     client.post("/api/v1/cart/items", json={"product_id": pid, "quantity": 1}, headers=buyer)
     oid = place_order(client, buyer, admin, ADDRESS)[0]["id"]
+    mine = client.get(f"/api/v1/orders/{oid}", headers=buyer).json()
+    assert mine["pay_to_marketplace"] and mine["pay_upi"] == "terramart@okhdfc" and mine["pay_payee"] == "Terra Mart"
     for st in ["confirmed", "packed", "shipped", "delivered"]:
         r = client.patch(f"/api/v1/seller/orders/{oid}/status", json={"status": st}, headers=seller)
         assert r.status_code == 200, st
+    assert r.json()["payment_status"] == "pending"  # the seller didn't collect it
+
+    # Buyer tells us they paid; the admin is emailed to check
+    assert client.post(f"/api/v1/orders/{oid}/paid", json={"reference": "x"}, headers=buyer).status_code == 422
+    r = client.post(f"/api/v1/orders/{oid}/paid", json={"reference": "UPI123456"}, headers=buyer)
+    assert r.status_code == 200 and r.json()["cod_reference"] == "UPI123456"
+    assert any(s.startswith("Buyer says they paid") for _, s in sent)
+    # Admin confirms it arrived -> paid, buyer thanked
+    r = client.patch(f"/api/v1/admin/orders/{oid}/status", json={"status": "delivered", "payment_status": "paid"}, headers=admin)
+    assert r.json()["payment_status"] == "paid"
+    assert any(s.startswith("Payment received") for _, s in sent)
+    assert client.post(f"/api/v1/orders/{oid}/paid", json={"reference": "UPI999999"}, headers=buyer).status_code == 400
+
+
+def test_older_cash_orders_still_paid_to_seller(client, seller, admin, buyer, category):
+    from app.db import SessionLocal
+    from app.models import Order
+    pid = make_product(client, seller, admin, category)
+    client.post("/api/v1/cart/items", json={"product_id": pid, "quantity": 1}, headers=buyer)
+    oid = place_order(client, buyer, admin, ADDRESS)[0]["id"]
+    with SessionLocal() as db:
+        db.get(Order, oid).pay_to_marketplace = False
+        db.commit()
+    for st in ["packed", "shipped", "delivered"]:
+        r = client.patch(f"/api/v1/seller/orders/{oid}/status", json={"status": st}, headers=seller)
     assert r.json()["payment_status"] == "paid"
 
 
@@ -192,3 +222,30 @@ def test_seller_declines_commission_then_accepts_new_offer(client, seller, admin
     # Another seller can't answer it
     other = make_seller(client, admin, "x2@test.io")
     assert client.post(f"/api/v1/seller/orders/{o['id']}/accept", headers=other).status_code == 404
+
+
+
+def test_offer_cancelled_if_seller_does_not_answer(client, seller, admin, buyer, category, monkeypatch):
+    from datetime import UTC, datetime, timedelta
+
+    from app.core.config import settings
+    from app.db import SessionLocal
+    from app.models import Order
+    sent = []
+    monkeypatch.setattr("app.services.notify.send_email", lambda to, subject, *a, **k: sent.append((to, subject)))
+    pid = make_product(client, seller, admin, category, stock=10)
+    client.post("/api/v1/cart/items", json={"product_id": pid, "quantity": 3}, headers=buyer)
+    o = client.post("/api/v1/orders/checkout", json=ADDRESS, headers=buyer).json()[0]
+    r = client.post(f"/api/v1/admin/orders/{o['id']}/approve", json={"commission_percent": "5"}, headers=admin).json()
+    assert r["answer_by"]  # shown to the seller and admin
+    # Still within the time: nothing happens
+    assert client.get("/api/v1/seller/orders", headers=seller).json()[0]["status"] == "seller_review"
+    with SessionLocal() as db:
+        db.get(Order, o["id"]).approved_at = datetime.now(UTC) - timedelta(hours=settings.seller_answer_hours + 1)
+        db.commit()
+    client.get("/api/v1/orders", headers=buyer)  # opening order lists runs the automation (and the daily cron)
+    got = client.get(f"/api/v1/orders/{o['id']}", headers=buyer).json()
+    assert got["status"] == "cancelled" and got["decline_reason"] == "The seller didn't confirm in time"
+    assert client.get(f"/api/v1/products/{pid}").json()["stock"] == 10
+    subjects = {s for _, s in sent}
+    assert f"Order cancelled — {o['order_number']}" in subjects and f"Offer expired — {o['order_number']}" in subjects

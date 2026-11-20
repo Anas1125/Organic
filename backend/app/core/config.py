@@ -47,6 +47,7 @@ class Settings(BaseSettings):
     razorpay_key_id: str | None = None
     razorpay_key_secret: str | None = None
     razorpay_webhook_secret: str | None = None
+    seller_answer_hours: int = 48  # offers the seller hasn't accepted by then are cancelled
     approved_payment_hours: int = 48  # time to pay an online order after the admin approves it
     payment_window_minutes: int = 30  # unpaid online orders are cancelled after this
 

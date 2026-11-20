@@ -22,7 +22,7 @@ from app.models import (
     User,
 )
 from app.models.enums import GIVerification, OrderStatus, PaymentMethod, PaymentStatus, ReviewStatus, Role
-from app.services import automation, payments
+from app.services import automation, notify, payments
 from app.services import orders as order_service
 from app.services import product_media as media
 from app.services.orders import ORDER_LOAD, change_status
@@ -558,6 +558,8 @@ def set_order_status(order_id: int, body: s.OrderStatusIn, db: Session = Depends
         o.payment_status = body.payment_status
         db.commit()
         db.refresh(o)
+        if o.pay_to_marketplace and o.payment_status == PaymentStatus.PAID:
+            notify.cod_payment_received(o)
     return admin_order_out(o)
 
 

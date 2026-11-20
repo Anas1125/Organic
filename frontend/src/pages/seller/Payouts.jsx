@@ -68,8 +68,9 @@ export default function Payouts() {
       <div className="card mt-6 p-5 text-sm leading-relaxed text-ink/80 sm:p-6">
         <h2 className="mb-2 text-base font-semibold text-ink">How payouts work</h2>
         <ul className="list-disc space-y-1 pl-5">
-          <li><strong>Online payments</strong> (UPI, card) go to the marketplace. Once the order is delivered, you are paid the order total minus commission.</li>
-          <li><strong>Cash on delivery</strong>: you collect the money yourself, so the commission on that order is taken off your next payout. If it's more than you're owed, the marketplace will ask you to pay it.</li>
+          <li><strong>Buyers pay the marketplace</strong>: online, or by UPI on delivery. Please don't collect money from buyers.</li>
+          <li>Once an order is delivered and the marketplace has received the money, you are paid the order total minus the commission you accepted.</li>
+          <li>Older cash-on-delivery orders you collected yourself: the commission is taken off your next payout.</li>
           <li>If an order is refunded after it was paid out, that amount is taken off your next payout.</li>
           <li>You'll get an email each time a payout is sent.</li>
         </ul>

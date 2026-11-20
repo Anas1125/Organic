@@ -29,7 +29,8 @@ def _summary(o: Order) -> list[str]:
         f"<b>Order {esc(o.order_number)}</b> from {esc(o.seller.business_name)}",
         _items(o),
         f"Total: <b>{_money(o.total)}</b> · "
-        + ("Cash on delivery" if o.payment_method == PaymentMethod.COD
+        + (("Pay on delivery (UPI to the marketplace)" if o.pay_to_marketplace else "Cash on delivery")
+           if o.payment_method == PaymentMethod.COD
            else "Paid online" if o.payment_status == "paid" else "Online payment (UPI / card)"),
     ]
 
@@ -107,7 +108,14 @@ def status_changed(o: Order) -> None:
     if o.status == OrderStatus.CANCELLED and o.payment_method == PaymentMethod.ONLINE and o.payment_status != "pending":
         lead.append("Your refund is being processed — we'll email you when it's done.")
     if o.status == OrderStatus.DELIVERED and o.payment_method == PaymentMethod.COD:
-        lead.append(f"Cash payment of {_money(o.total)} received.")
+        if o.pay_to_marketplace and o.payment_status != "paid":
+            lead.append(f"If you haven't yet, please pay {_money(o.total)} to us by UPI — "
+                        "the details and QR code are on your order page.")
+        elif not o.pay_to_marketplace:
+            lead.append(f"Cash payment of {_money(o.total)} received.")
+    if o.status == OrderStatus.SHIPPED and o.payment_method == PaymentMethod.COD and o.pay_to_marketplace:
+        lead.append(f"When it arrives, pay {_money(o.total)} to us by UPI — not to the delivery person. "
+                    "The details and QR code are on your order page.")
     _buyer(o, f"{heading} — {o.order_number}", heading, lead)
 
 
@@ -160,7 +168,8 @@ def enquiry_approved(o: Order) -> None:
     else:
         _buyer(o, f"Order confirmed — {o.order_number}", "Your enquiry is approved",
                ["Good news — the seller can supply your order and is getting it ready. "
-                f"Please keep {_money(o.total)} ready to pay on delivery."])
+                f"When it arrives, pay {_money(o.total)} to us by UPI (not to the seller or delivery person) — "
+                "the details and QR code are on your order page."])
 
 
 def enquiry_declined(o: Order) -> None:
@@ -176,11 +185,10 @@ def offer_to_seller(o: Order) -> None:
     if not user:
         return
     commission = (o.subtotal * o.commission_rate / 100).quantize(Decimal("0.01"))
-    you_get = (f"Paid online: after delivery you receive <b>{_money(o.total - commission)}</b> "
-               f"({_money(o.total)} minus {_money(commission)} commission)."
-               if o.payment_method == PaymentMethod.ONLINE else
-               f"Cash on delivery: you collect <b>{_money(o.total)}</b> from the buyer and pay "
-               f"<b>{_money(commission)}</b> commission to the marketplace.")
+    how = "online" if o.payment_method == PaymentMethod.ONLINE else "by UPI on delivery"
+    you_get = (f"The buyer pays the marketplace {how} — please don't collect money from the buyer. "
+               f"After delivery we pay you <b>{_money(o.total - commission)}</b> "
+               f"({_money(o.total)} minus {_money(commission)} commission).")
     send_email(
         user.email, f"Please accept order {o.order_number} ({o.commission_rate.normalize():f}% commission)",
         "A new order is waiting for you",
@@ -208,3 +216,36 @@ def seller_answered(o: Order, *, accepted: bool, admin_emails: list[str]) -> Non
                  "It's back in your Enquiries: agree new terms and approve again, or decline it for the buyer."]
     for to in admin_emails:
         send_email(to, subject, subject, lines, ("Open the order", _site(f"/admin/orders?open={o.id}")))
+
+
+def offer_expired(o: Order, admin_emails: list[str]) -> None:
+    _buyer(o, f"Order cancelled — {o.order_number}", "We couldn't confirm your order",
+           ["Sorry — the seller didn't confirm this order in time, so it has been cancelled. "
+            "No money was taken. You're welcome to order again or choose another seller."])
+    user = o.seller.user if hasattr(o.seller, "user") else None
+    if user:
+        send_email(user.email, f"Offer expired — {o.order_number}", "This order offer has expired",
+                   [f"Hi {esc(o.seller.business_name)},",
+                    f"You didn't accept order {esc(o.order_number)} within {settings.seller_answer_hours} hours, "
+                    "so it was cancelled and the buyer has been told."])
+    for to in admin_emails:
+        send_email(to, f"Offer expired: {o.seller.business_name} didn't answer {o.order_number}",
+                   "Offer expired", [f"<b>{esc(o.seller.business_name)}</b> didn't answer within "
+                                     f"{settings.seller_answer_hours} hours. Order {esc(o.order_number)} was cancelled "
+                                     "and the buyer was told."])
+
+
+def buyer_says_paid(o: Order, admin_emails: list[str]) -> None:
+    for to in admin_emails:
+        send_email(to, f"Buyer says they paid {o.order_number}", "Check this payment",
+                   [f"<b>{esc(o.buyer.full_name)}</b> says they paid <b>{_money(o.total)}</b> for order "
+                    f"{esc(o.order_number)} by UPI.",
+                    f"Reference: <b>{esc(o.cod_reference or '—')}</b>",
+                    "Check it in your bank / UPI app, then mark the payment as received on the order."],
+                   ("Open the order", _site(f"/admin/orders?open={o.id}")))
+
+
+def cod_payment_received(o: Order) -> None:
+    _buyer(o, f"Payment received — {o.order_number}", "Thanks, we've received your payment",
+           [f"We've received your payment of {_money(o.total)} for order {esc(o.order_number)}."],
+           with_summary=False)

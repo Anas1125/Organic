@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -8,8 +9,9 @@ from app import schemas as s
 from app.core.deps import require_buyer
 from app.db import get_db
 from app.models import Address, CartItem, Order, Product, User
-from app.models.enums import OrderStatus
-from app.services import automation, payments
+from app.models.enums import OrderStatus, PaymentMethod, PaymentStatus
+from app.routers.site import get_settings_row
+from app.services import automation, notify, payments
 from app.services import orders as order_service
 from app.services.orders import ORDER_LOAD
 from app.services.pricing import check_quantity, unit_price_for
@@ -17,6 +19,17 @@ from app.services.queries import PRODUCT_LOAD, visible_products
 from app.services.serializers import order_out, product_out
 
 router = APIRouter(tags=["Buyer"])
+
+PAY_STAGES = (OrderStatus.CONFIRMED, OrderStatus.PACKED, OrderStatus.SHIPPED, OrderStatus.DELIVERED)
+
+
+def _out(db: Session, o: Order) -> s.OrderOut:
+    """The buyer's view of an order, with where to pay for pay-on-delivery orders."""
+    out = order_out(o)
+    if o.payment_method == PaymentMethod.COD and o.pay_to_marketplace:
+        site = get_settings_row(db)
+        out.pay_upi, out.pay_payee = site.payment_upi, site.payment_payee or site.site_name
+    return out
 
 
 # ---------- Cart ----------
@@ -142,7 +155,7 @@ def checkout(
     created = order_service.checkout(db, buyer, body)
     ids = [o.id for o in created]
     rows = db.scalars(select(Order).where(Order.id.in_(ids)).options(*ORDER_LOAD))
-    return [order_out(o) for o in rows]
+    return [_out(db, o) for o in rows]
 
 
 @router.get("/orders", response_model=list[s.OrderOut])
@@ -154,7 +167,7 @@ def my_orders(buyer: User = Depends(require_buyer), db: Session = Depends(get_db
         .options(*ORDER_LOAD)
         .order_by(Order.created_at.desc())
     )
-    return [order_out(o) for o in rows]
+    return [_out(db, o) for o in rows]
 
 
 def _own_order(db: Session, buyer: User, order_id: int, lock: bool = False) -> Order:
@@ -169,7 +182,7 @@ def _own_order(db: Session, buyer: User, order_id: int, lock: bool = False) -> O
 
 @router.get("/orders/{order_id}", response_model=s.OrderOut)
 def my_order(order_id: int, buyer: User = Depends(require_buyer), db: Session = Depends(get_db)):
-    return order_out(_own_order(db, buyer, order_id))
+    return _out(db, _own_order(db, buyer, order_id))
 
 
 @router.post("/orders/{order_id}/received", response_model=s.OrderOut)
@@ -178,7 +191,24 @@ def order_received(order_id: int, buyer: User = Depends(require_buyer), db: Sess
     o = _own_order(db, buyer, order_id, lock=True)
     if o.status != OrderStatus.SHIPPED:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Only shipped orders can be marked as received")
-    return order_out(order_service.change_status(db, o, OrderStatus.DELIVERED, as_admin=True))
+    return _out(db, order_service.change_status(db, o, OrderStatus.DELIVERED, as_admin=True))
+
+
+@router.post("/orders/{order_id}/paid", response_model=s.OrderOut)
+def tell_us_paid(order_id: int, body: s.CodPaidIn, buyer: User = Depends(require_buyer), db: Session = Depends(get_db)):
+    """Pay on delivery: the buyer says they've paid the marketplace by UPI (with the
+    reference), so the team can check it. The team then marks it received."""
+    o = _own_order(db, buyer, order_id, lock=True)
+    if o.payment_method != PaymentMethod.COD or not o.pay_to_marketplace or o.status not in PAY_STAGES:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "This order isn't waiting for a payment from you")
+    if o.payment_status != PaymentStatus.PENDING:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "We've already received your payment")
+    o.cod_reference = body.reference.strip()
+    o.cod_claimed_at = datetime.now(UTC)
+    db.commit()
+    db.refresh(o)
+    notify.buyer_says_paid(o, order_service._admin_emails(db))
+    return _out(db, o)
 
 
 @router.post("/orders/{order_id}/cancel", response_model=s.OrderOut)
@@ -188,12 +218,12 @@ def cancel_order(
     o = _own_order(db, buyer, order_id, lock=True)
     if o.status == OrderStatus.AWAITING_PAYMENT:
         payments.cancel_unpaid(db, o.checkout_ref, buyer=buyer, why="Cancelled before payment")
-        return order_out(_own_order(db, buyer, order_id))
+        return _out(db, _own_order(db, buyer, order_id))
     if o.status not in (OrderStatus.ENQUIRY, OrderStatus.SELLER_REVIEW, OrderStatus.PENDING, OrderStatus.CONFIRMED):
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST, "This order is already being prepared and can't be cancelled"
         )
-    return order_out(order_service.change_status(db, o, OrderStatus.CANCELLED, as_admin=True))
+    return _out(db, order_service.change_status(db, o, OrderStatus.CANCELLED, as_admin=True))
 
 
 # ---------- Saved addresses ----------

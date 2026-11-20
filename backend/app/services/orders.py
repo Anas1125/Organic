@@ -1,5 +1,5 @@
 import secrets
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 from fastapi import HTTPException, status
@@ -98,6 +98,7 @@ def checkout(db: Session, buyer: User, body: s.CheckoutIn) -> list[Order]:
             subtotal=Decimal(0),
             total=Decimal(0),
             commission_rate=commission or Decimal(0),
+            pay_to_marketplace=True,  # online, or UPI to the marketplace on delivery
             **body.model_dump(exclude={"payment_method"}),
         )
         subtotal = Decimal(0)
@@ -241,8 +242,8 @@ def change_status(
         order.tracking_number = (tracking_number or "").strip() or order.tracking_number
     if new_status == OrderStatus.DELIVERED:
         order.delivered_at = now
-        if order.payment_method == PaymentMethod.COD:
-            order.payment_status = PaymentStatus.PAID
+        if order.payment_method == PaymentMethod.COD and not order.pay_to_marketplace:
+            order.payment_status = PaymentStatus.PAID  # older orders: the seller collected the cash
     order.status = new_status
     db.commit()
     if refund:
@@ -251,3 +252,18 @@ def change_status(
     if notify_buyer:
         notify.status_changed(order)
     return order
+
+
+def expire_offers(db: Session) -> int:
+    """Cancel offers the seller hasn't answered within SELLER_ANSWER_HOURS."""
+    cutoff = datetime.now(UTC) - timedelta(hours=settings.seller_answer_hours)
+    stale = db.scalars(
+        select(Order).where(Order.status == OrderStatus.SELLER_REVIEW, Order.approved_at < cutoff)
+        .options(*ORDER_LOAD).limit(200)
+    ).all()
+    admins = _admin_emails(db) if stale else []
+    for o in stale:
+        o.decline_reason = "The seller didn't confirm in time"
+        change_status(db, o, OrderStatus.CANCELLED, as_admin=True, notify_buyer=False)
+        notify.offer_expired(o, admins)
+    return len(stale)

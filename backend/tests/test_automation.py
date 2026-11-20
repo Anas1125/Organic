@@ -36,7 +36,8 @@ def test_bulk_ship_with_tracking_then_buyer_receives(client, buyer, seller, admi
     assert r["updated"] == [] and len(r["failed"]) == 3
 
     got = client.post(f"/api/v1/orders/{ids[0]}/received", headers=buyer).json()
-    assert got["status"] == "delivered" and got["payment_status"] == "paid"  # COD paid on delivery
+    # Pay on delivery goes to the marketplace: unpaid until the admin confirms the money arrived
+    assert got["status"] == "delivered" and got["payment_status"] == "pending"
     assert client.post(f"/api/v1/orders/{ids[0]}/received", headers=buyer).status_code == 400
 
 

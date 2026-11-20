@@ -4,6 +4,7 @@
 - Shipped orders are marked delivered AUTO_DELIVER_DAYS after shipping, unless the buyer
   already confirmed it. Cash-on-delivery orders become paid at the same time.
 - Unpaid online checkouts past the payment window are cancelled (see payments.expire_stale).
+- Offers the seller hasn't accepted within SELLER_ANSWER_HOURS are cancelled.
 
 run() is called whenever order lists are opened and once a day by Vercel Cron, so nothing
 depends on someone being at a computer. Every step is safe to repeat.
@@ -19,7 +20,7 @@ from app.core.config import settings
 from app.models import Order
 from app.models.enums import OrderStatus
 from app.services import payments, ratelimit
-from app.services.orders import ORDER_LOAD, change_status
+from app.services.orders import ORDER_LOAD, change_status, expire_offers
 
 logger = logging.getLogger("terralens")
 BATCH = 200  # per run, so one request never does too much
@@ -28,7 +29,7 @@ BATCH = 200  # per run, so one request never does too much
 def run(db: Session) -> dict:
     payments.expire_stale(db)
     ratelimit.prune(db)
-    done = {"confirmed": 0, "delivered": 0}
+    done = {"confirmed": 0, "delivered": 0, "offers_expired": expire_offers(db)}
 
     if settings.auto_confirm_orders:
         for o in db.scalars(
@@ -48,6 +49,6 @@ def run(db: Session) -> dict:
             change_status(db, o, OrderStatus.DELIVERED, as_admin=True)
             done["delivered"] += 1
 
-    if done["confirmed"] or done["delivered"]:
+    if any(done.values()):
         logger.info("Order automation: %s", done)
     return done

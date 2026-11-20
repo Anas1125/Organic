@@ -9,7 +9,7 @@ from tests.conftest import make_product, make_seller
 from tests.test_orders import ADDRESS
 
 
-def _order(client, buyer, seller, admin, category, *, online=False, name="Item"):
+def _order(client, buyer, seller, admin, category, *, online=False, name="Item", seller_collected=False):
     pid = make_product(client, seller, admin, category, name=name, price="100", price_tiers=[])
     client.post("/api/v1/cart/items", json={"product_id": pid, "quantity": 1}, headers=buyer)
     oid = client.post("/api/v1/orders/checkout", json=ADDRESS, headers=buyer).json()[0]["id"]
@@ -19,6 +19,8 @@ def _order(client, buyer, seller, admin, category, *, online=False, name="Item")
         o.payment_status = PaymentStatus.PAID
         if online:
             o.payment_method = PaymentMethod.ONLINE
+        if seller_collected:  # an older cash order, paid to the seller
+            o.pay_to_marketplace = False
         db.commit()
     return oid
 
@@ -45,17 +47,18 @@ def test_settle_online_and_cash_orders(client, buyer, seller, admin, category, m
     _order(client, buyer, seller, admin, category, name="Old")
     assert client.put("/api/v1/admin/payouts-commission", json={"commission_percent": "10"}, headers=admin).status_code == 200
     _order(client, buyer, seller, admin, category, online=True, name="Online")  # seller is owed 90
-    _order(client, buyer, seller, admin, category, name="Cash")  # seller owes 10
+    _order(client, buyer, seller, admin, category, name="Paid on delivery")  # paid to us: seller is owed 90
+    _order(client, buyer, seller, admin, category, name="Cash", seller_collected=True)  # seller owes 10
+    # (the "Old" 0% order was paid to the marketplace: the seller is owed all 100)
 
     due = _due(client, admin)
-    # The 0% cash order involves no money, so it isn't listed
-    assert Decimal(due["balance"]) == Decimal("80.00") and due["order_count"] == 2
+    assert Decimal(due["balance"]) == Decimal("270.00") and due["order_count"] == 4
 
     sid = due["seller_id"]
     # The amount the admin saw must still be right
     assert client.post(f"/api/v1/admin/payouts/{sid}", json={"amount": "70"}, headers=admin).status_code == 409
-    r = client.post(f"/api/v1/admin/payouts/{sid}", json={"amount": "80", "reference": "UTR123"}, headers=admin)
-    assert r.status_code == 201 and r.json()["order_count"] == 2 and mails
+    r = client.post(f"/api/v1/admin/payouts/{sid}", json={"amount": "270", "reference": "UTR123"}, headers=admin)
+    assert r.status_code == 201 and r.json()["order_count"] == 4 and mails
 
     mine = client.get("/api/v1/seller/payouts", headers=seller).json()
     assert Decimal(mine["balance"]) == 0 and mine["lines"] == [] and mine["history"][0]["reference"] == "UTR123"

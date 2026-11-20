@@ -95,6 +95,8 @@ def order_out(o: Order, *, commission: bool = False) -> s.OrderOut:
     if not commission:
         out.commission_rate = None
         out.seller_response = None
+    if o.status == "seller_review" and o.approved_at:
+        out.answer_by = o.approved_at + timedelta(hours=settings.seller_answer_hours)
     out.buyer_name = o.buyer.full_name
     out.buyer_email = o.buyer.email
     if o.status == "shipped" and o.shipped_at and settings.auto_deliver_days > 0:

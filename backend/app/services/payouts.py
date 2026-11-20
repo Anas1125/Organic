@@ -1,9 +1,9 @@
 """What each seller is owed, and recording payouts.
 
-Buyers pay the platform (online) or the seller (cash on delivery). Once an order is
-delivered and paid it is "open" for settlement:
-  * online: the platform owes the seller the total minus commission
-  * cash on delivery: the seller owes the platform the commission
+Buyers pay the marketplace (online, or by UPI on delivery). Older cash-on-delivery orders
+were paid to the seller. Once an order is delivered and paid it is "open" for settlement:
+  * paid to the marketplace: the marketplace owes the seller the total minus commission
+  * paid to the seller (older cash on delivery): the seller owes the commission
 An order refunded after it was settled is taken back in the next payout.
 """
 
@@ -35,7 +35,8 @@ def commission_of(o: Order) -> Decimal:
 
 def effect(o: Order) -> Decimal:
     c = commission_of(o)
-    return (o.total - c) if o.payment_method == PaymentMethod.ONLINE else -c
+    to_marketplace = o.payment_method == PaymentMethod.ONLINE or o.pay_to_marketplace
+    return (o.total - c) if to_marketplace else -c
 
 
 def open_lines(db: Session, seller_id: int | None = None) -> list[Line]:

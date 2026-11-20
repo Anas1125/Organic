@@ -153,7 +153,7 @@ function Checkout({ cart }) {
           {payCfg?.online_enabled && (
             <PayOption active={method === 'online'} onClick={() => setMethod('online')} icon={Smartphone} title="UPI, card or netbanking" text="Pay with Razorpay (GPay, PhonePe, Paytm and more) once your order is approved" />
           )}
-          <PayOption active={!online} onClick={() => setMethod('cod')} icon={Truck} title="Cash on delivery" text="Pay the seller when your order arrives" />
+          <PayOption active={!online} onClick={() => setMethod('cod')} icon={Truck} title="Pay on delivery" text="Pay us by UPI when your order arrives (QR code on your order page)" />
         </div>
       </div>
       <Button type="submit" size="lg" className="w-full" loading={busy} disabled={!cart.can_checkout || choice === null}>

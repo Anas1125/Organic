@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import api, { errorMessage } from '../../api/client'
 import { ItemPhoto, OrderItemsTable, OrderMeta, OrderTimeline, ShippingBlock } from '../../components/orders'
+import PayOnDelivery, { needsDeliveryPayment } from '../../components/PayOnDelivery'
 import { Button, EmptyState, ErrorBox, Spinner, StatusBadge } from '../../components/ui'
 import { useToast } from '../../context/ToastContext'
 import useFetch from '../../hooks/useFetch'
@@ -175,6 +176,7 @@ export function OrderDetail() {
 
       <div className="mt-6">
         {o.status === 'awaiting_payment' && <UnpaidNotice orderRef={o.checkout_ref} total={Number(o.total)} approved={Boolean(o.approved_at)} onDone={reload} />}
+        {needsDeliveryPayment(o) && <div className="mb-6"><PayOnDelivery order={o} onChange={setData} /></div>}
       </div>
       <div className="card p-5 sm:p-6"><OrderTimeline status={o.status} reason={o.decline_reason} /></div>
       {['shipped', 'delivered'].includes(o.status) && (o.courier || o.tracking_number || o.status === 'shipped') && (

@@ -41,6 +41,43 @@ function CommissionCard({ value, onSaved }) {
   )
 }
 
+/** Where buyers pay on delivery: shown on their order page with a QR code. */
+function PaymentDetailsCard() {
+  const toast = useToast()
+  const { data, loading } = useFetch('/admin/payment-details')
+  const [form, setForm] = useState({ payment_upi: '', payment_payee: '' })
+  const [busy, setBusy] = useState(false)
+  useEffect(() => { if (data) setForm({ payment_upi: data.payment_upi || '', payment_payee: data.payment_payee || '' }) }, [data])
+
+  const save = async (e) => {
+    e.preventDefault()
+    setBusy(true)
+    try {
+      await api.put('/admin/payment-details', form)
+      toast.success('Payment details saved')
+    } catch (err) {
+      toast.error(errorMessage(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+  if (loading) return null
+  return (
+    <form onSubmit={save} className="card space-y-4 p-5 sm:p-6">
+      <div>
+        <h2 className="flex items-center gap-2 font-semibold"><Wallet className="size-4 text-brand-700" /> Where buyers pay on delivery</h2>
+        <p className="mt-0.5 text-sm text-muted">Pay-on-delivery buyers pay you by UPI, not the seller. Their order page shows this UPI ID with a QR code for the exact amount. Then you pay each seller their share here.</p>
+        {!form.payment_upi && <p className="mt-2 text-sm font-medium text-amber-700">No UPI ID yet — buyers are told your team will contact them.</p>}
+      </div>
+      <div className="grid gap-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+        <Field label="Your UPI ID"><Input value={form.payment_upi} onChange={(e) => setForm({ ...form, payment_upi: e.target.value })} placeholder="business@okhdfc" /></Field>
+        <Field label="Name shown to buyers"><Input value={form.payment_payee} maxLength={100} onChange={(e) => setForm({ ...form, payment_payee: e.target.value })} placeholder="Terra Mart" /></Field>
+        <Button type="submit" loading={busy}>Save</Button>
+      </div>
+    </form>
+  )
+}
+
 function SettleDialog({ sellerId, onClose, onDone }) {
   const toast = useToast()
   const { data, loading, error, reload } = useFetch(sellerId ? `/admin/payouts/${sellerId}` : null)
@@ -136,8 +173,9 @@ export default function AdminPayouts() {
 
   return (
     <>
-      <PageHeader title="Seller payouts" subtitle="Online payments come to you. After an order is delivered, pay the seller their share here; for cash-on-delivery orders, collect your commission." />
+      <PageHeader title="Seller payouts" subtitle="Buyers pay you (online, or by UPI on delivery). After an order is delivered and paid, pay the seller their share here. Older cash orders the seller collected show the commission to collect." />
       <CommissionCard value={data.commission_percent} onSaved={(commission_percent) => setData({ ...data, commission_percent })} />
+      <div className="mt-4"><PaymentDetailsCard /></div>
 
       <div className="mt-6 grid gap-3 sm:grid-cols-2">
         <div className="card p-5"><div className="text-xs font-medium text-muted">To pay sellers</div><div className="mt-0.5 text-2xl font-bold text-brand-800">{money(toPay)}</div></div>

@@ -13,6 +13,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    false,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -284,6 +285,11 @@ class Order(TimestampMixin, Base):
     # The seller's answer to the offer: when they accepted, or why they said no.
     accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     seller_response: Mapped[str | None] = mapped_column(String(300))
+    # Pay on delivery: the buyer pays the marketplace (UPI), not the seller. Older
+    # cash-on-delivery orders (False) were paid to the seller.
+    pay_to_marketplace: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    cod_reference: Mapped[str | None] = mapped_column(String(100))  # UPI reference the buyer gave
+    cod_claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # Settlement with the seller: which payout included it and for how much (+ owed to the
     # seller for online payments, - commission owed by the seller for cash on delivery).
     payout_id: Mapped[int | None] = mapped_column(ForeignKey("payouts.id"), index=True)
@@ -331,6 +337,9 @@ class SiteSettings(Base):
     locations: Mapped[list[str] | None] = mapped_column(JSON)
     # Platform commission on new orders, in percent of the order subtotal.
     commission_percent: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal(0), server_default="0")
+    # Where buyers pay on delivery (shown on their order page with a QR code).
+    payment_upi: Mapped[str | None] = mapped_column(String(100))
+    payment_payee: Mapped[str | None] = mapped_column(String(100))
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, onupdate=utcnow
     )

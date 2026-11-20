@@ -538,12 +538,23 @@ class OrderOut(ORM):
     accepted_at: datetime | None = None
     decline_reason: str | None = None
     seller_response: str | None = None
+    answer_by: datetime | None = None  # offer auto-cancels if the seller hasn't answered by then
+    # Pay on delivery to the marketplace
+    pay_to_marketplace: bool = False
+    cod_reference: str | None = None
+    cod_claimed_at: datetime | None = None
+    pay_upi: str | None = None
+    pay_payee: str | None = None
     # Admin only: who to call about an enquiry.
     buyer_phone: str | None = None
     buyer_type: str | None = None
     seller_owner: str | None = None
     seller_email: str | None = None
     seller_phone: str | None = None
+
+
+class CodPaidIn(BaseModel):
+    reference: str = Field(min_length=4, max_length=100)  # UPI transaction / UTR number
 
 
 class ApproveIn(BaseModel):

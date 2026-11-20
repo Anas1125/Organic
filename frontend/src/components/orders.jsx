@@ -92,8 +92,8 @@ const PAY_TEXT = {
 }
 
 export function paymentLabel(order) {
-  const how = order.payment_method === 'online' ? 'Online' : 'COD'
-  if (order.payment_method === 'cod' && order.payment_status === 'pending') return 'COD · pay on delivery'
+  const how = order.payment_method === 'online' ? 'Online' : order.pay_to_marketplace ? 'Pay on delivery' : 'COD'
+  if (order.payment_method === 'cod' && order.payment_status === 'pending') return order.pay_to_marketplace ? 'Pay on delivery (UPI) · not paid yet' : 'COD · pay on delivery'
   return `${how} · ${PAY_TEXT[order.payment_status] || order.payment_status}`
 }
 
