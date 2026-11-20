@@ -60,7 +60,7 @@ export function AdminAdmins() {
         <div>
           {error ? <ErrorBox message={error} onRetry={reload} /> : loading ? <Spinner /> : (
             <div className="table-wrap">
-              <table className="table">
+              <table className="table table-stack">
                 <thead><tr><th>Admin</th><th>Added</th><th></th></tr></thead>
                 <tbody>
                   {data.map((a) => (
@@ -73,7 +73,7 @@ export function AdminAdmins() {
                         </div>
                         <div className="text-xs text-muted [overflow-wrap:anywhere]">{a.email}</div>
                       </td>
-                      <td className="whitespace-nowrap text-muted">{date(a.created_at)}</td>
+                      <td data-label="Added" className="whitespace-nowrap text-muted">{date(a.created_at)}</td>
                       <td className="text-right">
                         {!a.is_owner && (
                           <Button size="sm" variant="danger-soft" onClick={() => remove(a)}><Trash2 className="size-4" /> Remove</Button>

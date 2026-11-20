@@ -91,7 +91,7 @@ function ImageManager({ product, pending, setPending, onProductChange }) {
           </label>
         )}
       </div>
-      <p className="mt-2 text-xs text-muted">Up to 6 photos. JPG, PNG or WebP, max 5 MB each. The first photo is the cover.</p>
+      <p className="mt-2 text-xs text-muted">Up to 6 photos. JPG, PNG or WebP, large photos are shrunk automatically. The first photo is the cover.</p>
     </div>
   )
 }

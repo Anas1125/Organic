@@ -1,10 +1,12 @@
 import { BadgeCheck, IndianRupee, Leaf, Package, ShoppingBag, Store, Users } from 'lucide-react'
-import { Link } from 'react-router-dom'
-import { ErrorBox, PageHeader, Spinner, StatCard, StatusBadge } from '../../components/ui'
+import { Link, useNavigate } from 'react-router-dom'
+import { ErrorBox, PageHeader, Spinner, StatCard } from '../../components/ui'
 import useFetch from '../../hooks/useFetch'
-import { date, money } from '../../lib/format'
+import { OrdersTable } from '../seller/SellerOrders'
+import { money } from '../../lib/format'
 
 export default function AdminHome() {
+  const navigate = useNavigate()
   const { data: s, loading, error, reload } = useFetch('/admin/stats')
   if (loading) return <Spinner />
   if (error) return <ErrorBox message={error} onRetry={reload} />
@@ -47,23 +49,7 @@ export default function AdminHome() {
 
       <h2 className="mb-3 mt-8 font-semibold">Latest orders</h2>
       {s.recent_orders.length ? (
-        <div className="table-wrap">
-          <table className="table">
-            <thead><tr><th>Order</th><th>Buyer</th><th>Seller</th><th>Date</th><th>Status</th><th className="text-right">Total</th></tr></thead>
-            <tbody>
-              {s.recent_orders.map((o) => (
-                <tr key={o.id}>
-                  <td className="whitespace-nowrap font-mono text-xs font-semibold">{o.order_number}</td>
-                  <td className="whitespace-nowrap">{o.buyer_name}</td>
-                  <td className="whitespace-nowrap">{o.seller.business_name}</td>
-                  <td className="whitespace-nowrap text-muted">{date(o.created_at)}</td>
-                  <td><StatusBadge status={o.status} /></td>
-                  <td className="text-right font-semibold">{money(o.total)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <OrdersTable orders={s.recent_orders} onOpen={(o) => navigate(`/admin/orders?open=${o.id}`)} showSeller />
       ) : <p className="card p-5 text-sm text-muted">No orders yet.</p>}
     </>
   )

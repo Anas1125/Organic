@@ -60,16 +60,16 @@ export function AdminUsers() {
         <div className="card"><EmptyState icon={Users} title="No users found" /></div>
       ) : (
         <div className="table-wrap">
-          <table className="table">
+          <table className="table table-stack">
             <thead><tr><th>Name</th><th>Role</th><th>Type</th><th>Joined</th><th>Status</th><th></th></tr></thead>
             <tbody>
               {rows.map((u) => (
                 <tr key={u.id}>
                   <td><div className="font-medium">{u.full_name}</div><div className="text-xs text-muted">{u.email}{u.phone && ` · ${u.phone}`}</div></td>
-                  <td className="capitalize">{u.role}</td>
-                  <td className="text-muted">{u.role === 'buyer' ? titleCase(u.buyer_type) : u.role === 'seller' ? titleCase(u.seller_status) : '—'}</td>
-                  <td className="whitespace-nowrap text-muted">{date(u.created_at)}</td>
-                  <td><StatusBadge status={u.is_active ? 'active' : 'inactive'} /></td>
+                  <td data-label="Role" className="capitalize">{u.role}</td>
+                  <td data-label="Type" className="text-muted">{u.role === 'buyer' ? titleCase(u.buyer_type) : u.role === 'seller' ? titleCase(u.seller_status) : '—'}</td>
+                  <td data-label="Joined" className="whitespace-nowrap text-muted">{date(u.created_at)}</td>
+                  <td data-label="Status"><StatusBadge status={u.is_active ? 'active' : 'inactive'} /></td>
                   <td className="text-right">
                     <div className="flex justify-end gap-2 whitespace-nowrap">
                       {me.is_owner && u.id !== me.id && (

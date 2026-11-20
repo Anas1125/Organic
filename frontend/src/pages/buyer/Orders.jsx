@@ -102,17 +102,21 @@ export function Orders() {
         : (
           <div className="space-y-3">
             {data.map((o) => (
-              <Link key={o.id} to={`/orders/${o.id}`} className="card flex items-center gap-4 p-4 transition hover:shadow-lift sm:p-5">
+              <Link key={o.id} to={`/orders/${o.id}`} className="card flex items-center gap-3 p-3.5 transition hover:shadow-lift sm:gap-4 sm:p-5">
                 <OrderThumb order={o} />
                 <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-mono text-sm font-semibold">{o.order_number}</span>
-                    <StatusBadge status={o.status} />
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="whitespace-nowrap font-mono text-xs font-semibold sm:text-sm">{o.order_number}</span>
+                    <span className="whitespace-nowrap font-bold sm:hidden">{money(o.total)}</span>
                   </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-x-1.5 text-xs text-muted"><Store className="size-3.5" /> {o.seller.business_name} · {o.items.length} item{o.items.length > 1 ? 's' : ''} · {date(o.created_at)}</div>
+                  <div className="mt-1"><StatusBadge status={o.status} /></div>
+                  <div className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-muted">
+                    <Store className="size-3.5 shrink-0" />
+                    <span className="truncate">{o.seller.business_name} · {o.items.length} item{o.items.length > 1 ? 's' : ''} · {date(o.created_at)}</span>
+                  </div>
                 </div>
-                <div className="text-right font-bold">{money(o.total)}</div>
-                <ChevronRight className="size-5 text-muted" />
+                <div className="hidden text-right font-bold sm:block">{money(o.total)}</div>
+                <ChevronRight className="size-5 shrink-0 text-muted" />
               </Link>
             ))}
           </div>

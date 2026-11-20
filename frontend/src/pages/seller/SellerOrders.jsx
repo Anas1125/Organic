@@ -146,7 +146,32 @@ export function OrdersTable({ orders, onOpen, showSeller, selected, onSelect }) 
   const toggleAll = () => onSelect(allOn ? new Set() : new Set(orders.map((o) => o.id)))
   const toggle = (id) => { const n = new Set(selected); n.has(id) ? n.delete(id) : n.add(id); onSelect(n) }
   return (
-    <div className="table-wrap">
+    <>
+    {/* Phones: one card per order (a wide table would need sideways scrolling). */}
+    <div className="space-y-2 sm:hidden">
+      {selectable && orders.length > 1 && (
+        <label className="flex items-center gap-2 px-1 text-sm text-muted">
+          <input type="checkbox" checked={allOn} onChange={toggleAll} className="size-4 accent-brand-700" /> Select all
+        </label>
+      )}
+      {orders.map((o) => (
+        <div key={o.id} className={`card flex items-start gap-3 p-3.5 ${selectable && selected.has(o.id) ? 'ring-2 ring-brand-200' : ''}`}>
+          {selectable && <input type="checkbox" checked={selected.has(o.id)} onChange={() => toggle(o.id)} className="mt-1 size-4 shrink-0 accent-brand-700" aria-label={`Select ${o.order_number}`} />}
+          <button type="button" onClick={() => onOpen(o)} className="min-w-0 flex-1 text-left">
+            <div className="flex items-start justify-between gap-2">
+              <span className="whitespace-nowrap font-mono text-xs font-semibold">{o.order_number}</span>
+              <span className="whitespace-nowrap font-semibold">{money(o.total)}</span>
+            </div>
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <StatusBadge status={o.status} />
+              <span className="text-xs text-muted">{date(o.created_at)} · {o.items.length} item{o.items.length > 1 ? 's' : ''}</span>
+            </div>
+            <div className="mt-1 truncate text-xs text-muted">{o.buyer_name}{showSeller ? ` → ${o.seller.business_name}` : ''}</div>
+          </button>
+        </div>
+      ))}
+    </div>
+    <div className="table-wrap hidden sm:block">
       <table className="table">
         <thead>
           <tr>
@@ -170,6 +195,7 @@ export function OrdersTable({ orders, onOpen, showSeller, selected, onSelect }) 
         </tbody>
       </table>
     </div>
+    </>
   )
 }
 

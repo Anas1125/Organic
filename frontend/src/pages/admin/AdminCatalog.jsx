@@ -162,14 +162,14 @@ export function AdminCategories() {
         <div className="card"><EmptyState icon={FolderTree} title="No categories" /></div>
       ) : (
         <div className="table-wrap">
-          <table className="table">
+          <table className="table table-stack">
             <thead><tr><th>Name</th><th>Products</th><th>Status</th><th></th></tr></thead>
             <tbody>
               {data.map((c) => (
                 <tr key={c.id}>
                   <td><div className="font-medium">{c.name}</div>{c.description && <div className="max-w-md truncate text-xs text-muted">{c.description}</div>}</td>
-                  <td>{c.product_count}</td>
-                  <td><StatusBadge status={c.is_active ? 'active' : 'inactive'} label={c.is_active ? 'Visible' : 'Hidden'} /></td>
+                  <td data-label="Products">{c.product_count}</td>
+                  <td data-label="Status"><StatusBadge status={c.is_active ? 'active' : 'inactive'} label={c.is_active ? 'Visible' : 'Hidden'} /></td>
                   <td className="whitespace-nowrap text-right">
                     <button onClick={() => setEditing(c)} className="rounded-full p-2 hover:bg-brand-50" aria-label="Edit"><Pencil className="size-4" /></button>
                     <button onClick={() => remove(c)} className="rounded-full p-2 text-red-600 hover:bg-red-50" aria-label="Delete"><Trash2 className="size-4" /></button>

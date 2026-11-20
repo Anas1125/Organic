@@ -193,15 +193,15 @@ export default function AdminPayouts() {
         {!data.sellers.length ? <EmptyState icon={Wallet} title="No sellers yet" /> : !shown.length ? <EmptyState icon={Search} title={`No sellers match “${q.trim()}”`} /> : (
           <ul className="divide-y divide-line">
             {shown.map((r) => (
-              <li key={r.seller_id} className="flex flex-wrap items-center gap-3 px-5 py-3.5">
-                <div className="min-w-0 flex-1">
+              <li key={r.seller_id} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-5 py-3.5">
+                <div className="min-w-0 basis-full sm:basis-auto sm:flex-1">
                   <div className="truncate font-medium">{r.business_name}</div>
                   <div className="truncate text-xs text-muted">
                     {r.details.payout_upi || (r.details.bank_account_number ? `Bank · ${r.details.bank_ifsc}` : <span className="text-amber-700">No payout details yet</span>)}
                     {r.order_count > 0 && ` · ${r.order_count} order${r.order_count > 1 ? 's' : ''}`}
                   </div>
                 </div>
-                <div className={`text-sm font-semibold ${Number(r.balance) < 0 ? 'text-amber-700' : Number(r.balance) > 0 ? 'text-brand-800' : 'text-muted'}`}>{balanceText(r.balance, 'admin')}</div>
+                <div className={`mr-auto text-sm font-semibold sm:mr-0 ${Number(r.balance) < 0 ? 'text-amber-700' : Number(r.balance) > 0 ? 'text-brand-800' : 'text-muted'}`}>{balanceText(r.balance, 'admin')}</div>
                 <Button size="sm" variant={r.order_count ? 'primary' : 'outline'} onClick={() => setOpen(r.seller_id)}>{r.order_count ? 'Settle' : 'View'}</Button>
               </li>
             ))}

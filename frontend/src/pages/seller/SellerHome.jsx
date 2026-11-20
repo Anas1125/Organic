@@ -1,9 +1,10 @@
 import { AlertTriangle, ArrowRight, Clock, IndianRupee, Package, Plus, ShoppingBag, XCircle } from 'lucide-react'
-import { Link } from 'react-router-dom'
-import { Button, EmptyState, ErrorBox, PageHeader, Spinner, StatCard, StatusBadge } from '../../components/ui'
+import { Link, useNavigate } from 'react-router-dom'
+import { Button, EmptyState, ErrorBox, PageHeader, Spinner, StatCard } from '../../components/ui'
 import { useAuth } from '../../context/AuthContext'
 import useFetch from '../../hooks/useFetch'
-import { date, money } from '../../lib/format'
+import { OrdersTable } from './SellerOrders'
+import { money } from '../../lib/format'
 
 export function SellerStatusBanner() {
   const { user } = useAuth()
@@ -33,6 +34,7 @@ export function SellerStatusBanner() {
 }
 
 export default function SellerHome() {
+  const navigate = useNavigate()
   const { user } = useAuth()
   const { data: stats, loading, error, reload } = useFetch('/seller/stats')
   const { data: orders } = useFetch('/seller/orders')
@@ -76,22 +78,7 @@ export default function SellerHome() {
         {!orders ? <Spinner /> : !orders.length ? (
           <div className="card"><EmptyState icon={ShoppingBag} title="No orders yet" text="Orders from buyers will appear here." /></div>
         ) : (
-          <div className="table-wrap">
-            <table className="table">
-              <thead><tr><th>Order</th><th>Buyer</th><th>Date</th><th>Status</th><th className="text-right">Total</th></tr></thead>
-              <tbody>
-                {orders.slice(0, 6).map((o) => (
-                  <tr key={o.id}>
-                    <td className="whitespace-nowrap font-mono text-xs font-semibold"><Link to={`/seller/orders?open=${o.id}`} className="hover:text-brand-700">{o.order_number}</Link></td>
-                    <td className="whitespace-nowrap">{o.buyer_name}</td>
-                    <td className="whitespace-nowrap text-muted">{date(o.created_at)}</td>
-                    <td><StatusBadge status={o.status} /></td>
-                    <td className="text-right font-semibold">{money(o.total)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <OrdersTable orders={orders.slice(0, 6)} onOpen={(o) => navigate(`/seller/orders?open=${o.id}`)} />
         )}
       </div>
     </>

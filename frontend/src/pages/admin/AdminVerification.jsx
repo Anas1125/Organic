@@ -58,16 +58,16 @@ export function AdminOrganic() {
         <div className="card"><EmptyState icon={Leaf} title="Nothing here" /></div>
       ) : (
         <div className="table-wrap">
-          <table className="table">
+          <table className="table table-stack">
             <thead><tr><th>Seller</th><th>Certificate</th><th>Authority</th><th>Valid</th><th>Status</th><th></th></tr></thead>
             <tbody>
               {rows.map((c) => (
                 <tr key={c.id}>
                   <td className="whitespace-nowrap font-medium">{c.seller_name}</td>
-                  <td><div>{c.certification_type}</div><div className="text-xs text-muted">No. {c.certification_number}</div></td>
-                  <td>{c.issuing_authority}</td>
-                  <td className="whitespace-nowrap text-xs">{date(c.issue_date)} – {date(c.expiry_date)}{c.is_expired && <div className="font-semibold text-red-600">Expired</div>}</td>
-                  <td><StatusBadge status={c.status} /></td>
+                  <td data-label="Certificate"><div>{c.certification_type}</div><div className="text-xs text-muted">No. {c.certification_number}</div></td>
+                  <td data-label="Authority">{c.issuing_authority}</td>
+                  <td data-label="Valid" className="whitespace-nowrap text-xs">{date(c.issue_date)} – {date(c.expiry_date)}{c.is_expired && <div className="font-semibold text-red-600">Expired</div>}</td>
+                  <td data-label="Status"><StatusBadge status={c.status} /></td>
                   <td className="whitespace-nowrap text-right">
                     {c.has_document && <Button size="sm" variant="outline" className="mr-2" onClick={() => viewDoc(toast, `/documents/certifications/${c.id}`)}><FileText className="size-3.5" /> View</Button>}
                     <Button size="sm" onClick={() => setReviewing(c)}>Review</Button>
@@ -163,7 +163,7 @@ export function AdminGI() {
         <div className="card"><EmptyState icon={BadgeCheck} title="Nothing here" /></div>
       ) : (
         <div className="table-wrap">
-          <table className="table">
+          <table className="table table-stack">
             <thead><tr><th>GI product</th><th>Type</th><th>Seller</th><th>Region</th><th>Application</th><th>Status</th><th></th></tr></thead>
             <tbody>
               {rows.map((g) => (
@@ -173,15 +173,15 @@ export function AdminGI() {
                     <div className="text-xs text-muted">{g.record_type === 'application' ? 'App.' : 'Reg.'} no. {g.registration_number || '—'}</div>
                     {g.authorised_user_number && <div className="text-xs text-muted">AU no. {g.authorised_user_number}</div>}
                   </td>
-                  <td className="text-xs">
+                  <td data-label="Type" className="text-xs">
                     <span className={`inline-block rounded-full px-2 py-0.5 font-semibold ${g.record_type === 'application' ? 'bg-sky-50 text-sky-800' : g.record_type === 'authorised_user' ? 'bg-violet-50 text-violet-800' : 'bg-amber-50 text-amber-800'}`}>
                       {{ registered_product: 'Registered', application: 'Application', authorised_user: 'Authorised user' }[g.record_type]}
                     </span>
                   </td>
-                  <td className="whitespace-nowrap">{g.seller_name}</td>
-                  <td>{g.geographical_region}</td>
-                  <td className="text-xs">{g.application_status || '—'}{g.applicant_association && <div className="text-muted">{g.applicant_association}</div>}</td>
-                  <td>
+                  <td data-label="Seller" className="whitespace-nowrap">{g.seller_name}</td>
+                  <td data-label="Region">{g.geographical_region}</td>
+                  <td data-label="Application" className="text-xs">{g.application_status || '—'}{g.applicant_association && <div className="text-muted">{g.applicant_association}</div>}</td>
+                  <td data-label="Status">
                     <StatusBadge status={g.verification_status} label={GI_STATUS_LABELS[g.verification_status]} />
                     {g.reviewed_by_name && <div className="mt-1 text-[11px] text-muted">by {g.reviewed_by_name}, {date(g.reviewed_at)}</div>}
                   </td>
