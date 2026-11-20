@@ -249,3 +249,36 @@ def test_offer_cancelled_if_seller_does_not_answer(client, seller, admin, buyer,
     assert client.get(f"/api/v1/products/{pid}").json()["stock"] == 10
     subjects = {s for _, s in sent}
     assert f"Order cancelled — {o['order_number']}" in subjects and f"Offer expired — {o['order_number']}" in subjects
+
+
+def test_admin_deletes_orders(client, seller, admin, buyer, category):
+    from app.db import SessionLocal
+    from app.models import Order, Payout
+    pid = make_product(client, seller, admin, category, stock=20)
+    ids = []
+    for q in (2, 3):
+        client.post("/api/v1/cart/items", json={"product_id": pid, "quantity": q}, headers=buyer)
+        ids.append(client.post("/api/v1/orders/checkout", json=ADDRESS, headers=buyer).json()[0]["id"])
+    assert client.get(f"/api/v1/products/{pid}").json()["stock"] == 15
+    # One is part of a seller payout: it's kept
+    with SessionLocal() as db:
+        o = db.get(Order, ids[1])
+        payout = Payout(seller_id=o.seller_id, amount=0)
+        db.add(payout)
+        db.flush()
+        o.payout_id = payout.id
+        db.commit()
+    assert client.post("/api/v1/admin/orders/delete", json={"order_ids": ids}, headers=seller).status_code == 403
+    r = client.post("/api/v1/admin/orders/delete", json={"order_ids": ids + [99999]}, headers=admin).json()
+    assert r["deleted"] == [ids[0]] and {x["id"] for x in r["skipped"]} == {ids[1], 99999}
+    assert client.get(f"/api/v1/products/{pid}").json()["stock"] == 17  # held stock returned
+    assert client.get(f"/api/v1/orders/{ids[0]}", headers=buyer).status_code == 404
+
+
+def test_admin_deletes_messages(client, admin):
+    client.post("/api/v1/contact", json={"name": "A B", "email": "a@test.io", "subject": "Hi there", "message": "Hello there, testing."})
+    msgs = client.get("/api/v1/admin/messages", headers=admin).json()
+    assert len(msgs) == 1
+    r = client.post("/api/v1/admin/messages/delete", json={"ids": [msgs[0]["id"]]}, headers=admin)
+    assert r.json()["deleted"] == [msgs[0]["id"]]
+    assert client.get("/api/v1/admin/messages", headers=admin).json() == []

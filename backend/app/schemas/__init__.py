@@ -580,6 +580,15 @@ class BulkStatusIn(BaseModel):
     tracking: dict[str, str] = Field(default_factory=dict)
 
 
+class OrderIdsIn(BaseModel):
+    order_ids: list[int] = Field(min_length=1, max_length=500)
+
+
+class DeleteOrdersOut(BaseModel):
+    deleted: list[int]
+    skipped: list[dict]
+
+
 class BulkStatusOut(BaseModel):
     updated: list["OrderOut"]
     failed: list[dict]

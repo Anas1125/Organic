@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
@@ -534,6 +534,18 @@ def _locked_order(db: Session, order_id: int) -> Order:
     return o
 
 
+@router.post("/orders/delete", response_model=s.DeleteOrdersOut)
+def delete_orders(body: s.OrderIdsIn, db: Session = Depends(get_db)):
+    """Permanently delete orders (one or many), e.g. test orders. Held stock goes back;
+    orders already paid out to a seller are kept."""
+    rows = db.scalars(
+        select(Order).where(Order.id.in_(body.order_ids)).options(*ORDER_LOAD).with_for_update(of=Order)
+    ).all()
+    deleted, skipped = order_service.delete_orders(db, list(rows))
+    missing = set(body.order_ids) - {o.id for o in rows}
+    return s.DeleteOrdersOut(deleted=deleted, skipped=skipped + [{"id": i, "reason": "Not found"} for i in missing])
+
+
 @router.post("/orders/{order_id}/approve", response_model=s.OrderOut)
 def approve_enquiry(order_id: int, body: s.ApproveIn, db: Session = Depends(get_db)):
     """Terms agreed with the seller: send it on (cash) or ask the buyer to pay (online)."""
@@ -586,3 +598,17 @@ def refund_order(order_id: int, db: Session = Depends(get_db)):
 @router.get("/messages", response_model=list[s.ContactOut])
 def messages(db: Session = Depends(get_db)):
     return db.scalars(select(ContactMessage).order_by(ContactMessage.created_at.desc()).limit(200))
+
+
+class MessageIdsIn(BaseModel):
+    ids: list[int] = Field(min_length=1, max_length=500)
+
+
+@router.post("/messages/delete")
+def delete_messages(body: MessageIdsIn, db: Session = Depends(get_db)):
+    """Permanently delete contact messages (one or many)."""
+    rows = db.scalars(select(ContactMessage).where(ContactMessage.id.in_(body.ids))).all()
+    for m in rows:
+        db.delete(m)
+    db.commit()
+    return {"deleted": [m.id for m in rows]}

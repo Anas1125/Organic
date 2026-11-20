@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app import schemas as s
 from app.core.config import settings
-from app.models import CartItem, Order, OrderItem, Product, SiteSettings, User
+from app.models import CartItem, Order, OrderItem, Payment, Product, SiteSettings, User
 from app.models.enums import OrderStatus, PaymentMethod, PaymentStatus, Role
 from app.services import notify, payments
 from app.services import razorpay as rzp
@@ -267,3 +267,27 @@ def expire_offers(db: Session) -> int:
         change_status(db, o, OrderStatus.CANCELLED, as_admin=True, notify_buyer=False)
         notify.offer_expired(o, admins)
     return len(stale)
+
+
+def delete_orders(db: Session, orders: list[Order]) -> tuple[list[int], list[dict]]:
+    """Permanently remove orders (e.g. test orders). Stock still held by an order goes back.
+    Orders already included in a seller payout are kept, so payout records stay correct."""
+    deleted, skipped = [], []
+    for o in orders:
+        if o.payout_id or o.reversal_payout_id:
+            skipped.append({"id": o.id, "order_number": o.order_number,
+                            "reason": "It's part of a seller payout, so it's kept for your records"})
+            continue
+        if o.status != OrderStatus.CANCELLED:
+            _restock(db, o)  # its stock is still set aside
+        deleted.append(o.id)
+        db.delete(o)
+    db.flush()
+    # Razorpay attempts for checkouts that no longer have any order
+    refs = {o.checkout_ref for o in orders if o.id in deleted}
+    if refs:
+        still_used = set(db.scalars(select(Order.checkout_ref).where(Order.checkout_ref.in_(refs))))
+        for p in db.scalars(select(Payment).where(Payment.checkout_ref.in_(refs - still_used))):
+            db.delete(p)
+    db.commit()
+    return deleted, skipped

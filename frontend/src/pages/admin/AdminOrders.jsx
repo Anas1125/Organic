@@ -1,4 +1,4 @@
-import { Mail, Phone, Search, ShoppingBag } from 'lucide-react'
+import { Mail, Phone, Search, ShoppingBag, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import api, { errorMessage } from '../../api/client'
@@ -208,61 +208,161 @@ function AdminOrderPanel({ order, onChange }) {
   )
 }
 
+/** "Delete permanently?" — used for orders and messages. */
+function ConfirmDelete({ open, title, children, busy, onCancel, onConfirm }) {
+  return (
+    <Modal open={open} onClose={onCancel} title={title}
+      footer={<><Button variant="outline" onClick={onCancel} disabled={busy}>Keep</Button><Button variant="danger-soft" loading={busy} onClick={onConfirm}><Trash2 className="size-4" /> Delete permanently</Button></>}>
+      <div className="space-y-3 text-sm">{children}<p className="font-medium text-red-700">This can't be undone.</p></div>
+    </Modal>
+  )
+}
+
 export function AdminOrders() {
   // The enquiry email links here with ?status=enquiry&open=<id>.
+  const toast = useToast()
   const [params] = useSearchParams()
   const [tab, setTab] = useState(params.get('status') || '')
   const [q, setQ] = useState('')
   const { data, setData, loading, error, reload } = useFetch('/admin/orders')
   const [openId, setOpenId] = useState(Number(params.get('open')) || null)
+  const [selected, setSelected] = useState(new Set())
+  const [deleting, setDeleting] = useState(null) // list of orders waiting for "Delete permanently?"
+  const [busy, setBusy] = useState(false)
   const open = data?.find((o) => o.id === openId)
   // "Payment due": pay-on-delivery orders whose money hasn't reached the marketplace yet.
   const due = (o) => o.payment_method === 'cod' && o.pay_to_marketplace && o.payment_status === 'pending' && ['confirmed', 'packed', 'shipped', 'delivered'].includes(o.status)
   const inTab = (o, t) => (t === 'payment_due' ? due(o) : o.status === t)
   const count = (s) => data?.filter((o) => inTab(o, s)).length
   const rows = (data || []).filter((o) => (!tab || inTab(o, tab)) && `${o.order_number} ${o.buyer_name} ${o.seller.business_name}`.toLowerCase().includes(q.toLowerCase()))
+  const picked = rows.filter((o) => selected.has(o.id))
+
+  const remove = async () => {
+    setBusy(true)
+    try {
+      const { data: r } = await api.post('/admin/orders/delete', { order_ids: deleting.map((o) => o.id) })
+      const gone = new Set(r.deleted)
+      setData(data.filter((o) => !gone.has(o.id)))
+      setSelected(new Set())
+      if (gone.has(openId)) setOpenId(null)
+      if (r.deleted.length) toast.success(`${r.deleted.length} order${r.deleted.length > 1 ? 's' : ''} deleted`)
+      if (r.skipped.length) toast.error(`${r.skipped.length} kept: ${r.skipped[0].reason}`)
+      setDeleting(null)
+    } catch (e) {
+      toast.error(errorMessage(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+  const paid = (deleting || []).filter((o) => o.payment_status === 'paid')
+  const live = (deleting || []).filter((o) => !['cancelled', 'delivered'].includes(o.status))
 
   return (
     <>
       <PageHeader title="All orders" subtitle="New orders arrive as enquiries: agree terms with the seller, then approve or decline. Admins can also override any order’s status or payment." />
       <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <Tabs value={tab} onChange={setTab} options={[{ value: '', label: 'All', count: data?.length }, ...['enquiry', 'seller_review', 'payment_due', 'awaiting_payment', ...ORDER_STEPS, 'cancelled'].map((s) => ({ value: s, label: { enquiry: 'Enquiries', seller_review: 'Awaiting seller', payment_due: 'Payment due', awaiting_payment: 'Unpaid online' }[s] || s[0].toUpperCase() + s.slice(1), count: count(s) }))]} />
+        <Tabs value={tab} onChange={(t) => { setTab(t); setSelected(new Set()) }} options={[{ value: '', label: 'All', count: data?.length }, ...['enquiry', 'seller_review', 'payment_due', 'awaiting_payment', ...ORDER_STEPS, 'cancelled'].map((s) => ({ value: s, label: { enquiry: 'Enquiries', seller_review: 'Awaiting seller', payment_due: 'Payment due', awaiting_payment: 'Unpaid online' }[s] || s[0].toUpperCase() + s.slice(1), count: count(s) }))]} />
         <div className="relative lg:w-64">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
           <input className="input pl-9" placeholder="Order no., buyer or seller" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
       </div>
+      {picked.length > 0 && (
+        <div className="sticky top-20 z-10 mb-3 flex flex-wrap items-center gap-3 rounded-2xl bg-brand-900 px-4 py-3 text-sm text-white shadow-lift">
+          <strong>{picked.length} selected</strong>
+          <Button size="sm" variant="danger-soft" onClick={() => setDeleting(picked)}><Trash2 className="size-4" /> Delete selected</Button>
+          <button type="button" className="ml-auto text-white/80 underline" onClick={() => setSelected(new Set())}>Clear</button>
+        </div>
+      )}
       {error ? <ErrorBox message={error} onRetry={reload} /> : loading ? <Spinner /> : !rows.length ? (
         <div className="card"><EmptyState icon={ShoppingBag} title="No orders" /></div>
-      ) : <OrdersTable orders={rows} onOpen={(o) => setOpenId(o.id)} showSeller />}
-      <Modal open={Boolean(open)} onClose={() => setOpenId(null)} title="Order details" wide>
-        {open && <AdminOrderPanel key={open.updated_at} order={open} onChange={(o) => setData(data.map((x) => (x.id === o.id ? o : x)))} />}
+      ) : <OrdersTable orders={rows} onOpen={(o) => setOpenId(o.id)} showSeller selected={selected} onSelect={setSelected} />}
+      <Modal open={Boolean(open) && !deleting} onClose={() => setOpenId(null)} title="Order details" wide>
+        {open && (
+          <>
+            <AdminOrderPanel key={open.updated_at} order={open} onChange={(o) => setData(data.map((x) => (x.id === o.id ? o : x)))} />
+            <div className="mt-5 border-t border-line pt-4 text-right">
+              <Button size="sm" variant="danger-soft" onClick={() => setDeleting([open])}><Trash2 className="size-4" /> Delete order</Button>
+            </div>
+          </>
+        )}
       </Modal>
+      <ConfirmDelete open={Boolean(deleting)} busy={busy} onCancel={() => setDeleting(null)} onConfirm={remove}
+        title={deleting?.length > 1 ? `Delete ${deleting.length} orders?` : `Delete order ${deleting?.[0]?.order_number}?`}>
+        <p>The {deleting?.length > 1 ? 'orders are' : 'order is'} removed for everyone — buyer, seller and admin. No email is sent.</p>
+        {live.length > 0 && <p>Stock held by {live.length} open order{live.length > 1 ? 's' : ''} goes back to the seller{"'"}s inventory.</p>}
+        {paid.length > 0 && <p className="rounded-xl bg-amber-50 p-3 text-amber-900"><strong>{paid.length} {paid.length > 1 ? 'were' : 'was'} paid.</strong> Deleting doesn{"'"}t refund anyone — refund first if money should go back.</p>}
+        <p className="text-muted">Orders already included in a seller payout are kept.</p>
+      </ConfirmDelete>
     </>
   )
 }
 
 export function AdminMessages() {
-  const { data, loading, error, reload } = useFetch('/admin/messages')
+  const toast = useToast()
+  const { data, setData, loading, error, reload } = useFetch('/admin/messages')
+  const [selected, setSelected] = useState(new Set())
+  const [deleting, setDeleting] = useState(null) // ids waiting for confirmation
+  const [busy, setBusy] = useState(false)
+  const toggle = (id) => { const n = new Set(selected); n.has(id) ? n.delete(id) : n.add(id); setSelected(n) }
+  const allOn = data?.length > 0 && data.every((m) => selected.has(m.id))
+
+  const remove = async () => {
+    setBusy(true)
+    try {
+      const { data: r } = await api.post('/admin/messages/delete', { ids: deleting })
+      const gone = new Set(r.deleted)
+      setData(data.filter((m) => !gone.has(m.id)))
+      setSelected(new Set())
+      toast.success(`${r.deleted.length} message${r.deleted.length === 1 ? '' : 's'} deleted`)
+      setDeleting(null)
+    } catch (e) {
+      toast.error(errorMessage(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <>
       <PageHeader title="Contact messages" subtitle="Sent from the Contact us page." />
       {error ? <ErrorBox message={error} onRetry={reload} /> : loading ? <Spinner /> : !data.length ? (
         <div className="card"><EmptyState icon={Mail} title="No messages yet" /></div>
       ) : (
-        <div className="space-y-3">
-          {data.map((m) => (
-            <div key={m.id} className="card p-5">
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <div className="font-semibold">{m.subject}</div>
-                <div className="text-xs text-muted">{dateTime(m.created_at)}</div>
+        <>
+          <div className="mb-3 flex flex-wrap items-center gap-3 text-sm">
+            <label className="flex cursor-pointer items-center gap-2">
+              <input type="checkbox" className="size-4 accent-brand-700" checked={allOn} onChange={() => setSelected(allOn ? new Set() : new Set(data.map((m) => m.id)))} />
+              Select all
+            </label>
+            {selected.size > 0 && (
+              <Button size="sm" variant="danger-soft" onClick={() => setDeleting([...selected])}><Trash2 className="size-4" /> Delete selected ({selected.size})</Button>
+            )}
+          </div>
+          <div className="space-y-3">
+            {data.map((m) => (
+              <div key={m.id} className={`card flex gap-3 p-5 ${selected.has(m.id) ? 'ring-2 ring-brand-200' : ''}`}>
+                <input type="checkbox" className="mt-1 size-4 shrink-0 accent-brand-700" checked={selected.has(m.id)} onChange={() => toggle(m.id)} aria-label={`Select message from ${m.name}`} />
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <div className="font-semibold">{m.subject}</div>
+                    <div className="flex items-center gap-2 text-xs text-muted">
+                      {dateTime(m.created_at)}
+                      <button type="button" onClick={() => setDeleting([m.id])} className="rounded-full p-1.5 text-red-600 hover:bg-red-50" aria-label={`Delete message from ${m.name}`}><Trash2 className="size-4" /></button>
+                    </div>
+                  </div>
+                  <div className="text-sm text-muted">{m.name} · <a href={`mailto:${m.email}`} className="text-brand-700 hover:underline">{m.email}</a></div>
+                  <p className="mt-3 whitespace-pre-line text-sm">{m.message}</p>
+                </div>
               </div>
-              <div className="text-sm text-muted">{m.name} · <a href={`mailto:${m.email}`} className="text-brand-700 hover:underline">{m.email}</a></div>
-              <p className="mt-3 whitespace-pre-line text-sm">{m.message}</p>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        </>
       )}
+      <ConfirmDelete open={Boolean(deleting)} busy={busy} onCancel={() => setDeleting(null)} onConfirm={remove}
+        title={deleting?.length > 1 ? `Delete ${deleting.length} messages?` : 'Delete this message?'}>
+        <p>{deleting?.length > 1 ? 'They are' : 'It is'} removed from the Messages page.</p>
+      </ConfirmDelete>
     </>
   )
 }
