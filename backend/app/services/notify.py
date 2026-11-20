@@ -161,7 +161,6 @@ def enquiry_approved(o: Order) -> None:
         _buyer(o, f"Order confirmed — {o.order_number}", "Your enquiry is approved",
                ["Good news — the seller can supply your order and is getting it ready. "
                 f"Please keep {_money(o.total)} ready to pay on delivery."])
-        _seller(o)
 
 
 def enquiry_declined(o: Order) -> None:
@@ -169,3 +168,43 @@ def enquiry_declined(o: Order) -> None:
     if o.decline_reason:
         lead.append(f"Reason: {esc(o.decline_reason)}")
     _buyer(o, f"Enquiry declined — {o.order_number}", "We couldn't confirm your enquiry", lead)
+
+
+def offer_to_seller(o: Order) -> None:
+    """The admin approved an enquiry: ask the seller to accept the agreed commission."""
+    user = o.seller.user if hasattr(o.seller, "user") else None
+    if not user:
+        return
+    commission = (o.subtotal * o.commission_rate / 100).quantize(Decimal("0.01"))
+    you_get = (f"Paid online: after delivery you receive <b>{_money(o.total - commission)}</b> "
+               f"({_money(o.total)} minus {_money(commission)} commission)."
+               if o.payment_method == PaymentMethod.ONLINE else
+               f"Cash on delivery: you collect <b>{_money(o.total)}</b> from the buyer and pay "
+               f"<b>{_money(commission)}</b> commission to the marketplace.")
+    send_email(
+        user.email, f"Please accept order {o.order_number} ({o.commission_rate.normalize():f}% commission)",
+        "A new order is waiting for you",
+        [f"Hi {esc(o.seller.business_name)},",
+         f"A buyer in {esc(o.shipping_city)} wants to order from you. As agreed with our team, the marketplace "
+         f"commission is <b>{o.commission_rate.normalize():f}%</b> ({_money(commission)}).",
+         *_summary(o), you_get,
+         "Please accept it if the commission is okay, or decline and tell us why. "
+         "The order is only confirmed once you accept."],
+        ("Accept or decline", _site(f"/seller/orders?open={o.id}")),
+    )
+
+
+def seller_answered(o: Order, *, accepted: bool, admin_emails: list[str]) -> None:
+    if accepted:
+        subject = f"{o.seller.business_name} accepted {o.order_number}"
+        lines = [f"<b>{esc(o.seller.business_name)}</b> accepted order {esc(o.order_number)} at "
+                 f"{o.commission_rate.normalize():f}% commission.",
+                 "It's now waiting for the buyer's payment." if o.status == OrderStatus.AWAITING_PAYMENT
+                 else "It's confirmed and the seller will ship it."]
+    else:
+        subject = f"{o.seller.business_name} declined the offer for {o.order_number}"
+        lines = [f"<b>{esc(o.seller.business_name)}</b> didn't accept the commission for order {esc(o.order_number)}.",
+                 f"Their reason: {esc(o.seller_response or '—')}",
+                 "It's back in your Enquiries: agree new terms and approve again, or decline it for the buyer."]
+    for to in admin_emails:
+        send_email(to, subject, subject, lines, ("Open the order", _site(f"/admin/orders?open={o.id}")))

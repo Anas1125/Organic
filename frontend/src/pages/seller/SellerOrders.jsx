@@ -1,15 +1,82 @@
-import { ShoppingBag } from 'lucide-react'
+import { Handshake, ShoppingBag } from 'lucide-react'
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import api, { errorMessage } from '../../api/client'
 import { OrderItemsTable, OrderMeta, OrderTimeline, ShippingBlock } from '../../components/orders'
-import { Button, EmptyState, ErrorBox, Field, Input, Modal, PageHeader, Spinner, StatusBadge, Tabs } from '../../components/ui'
+import { Button, EmptyState, ErrorBox, Field, Input, Modal, PageHeader, Spinner, StatusBadge, Tabs, Textarea } from '../../components/ui'
 import { useToast } from '../../context/ToastContext'
 import useFetch from '../../hooks/useFetch'
 import { date, money } from '../../lib/format'
 
 const NEXT = { pending: 'confirmed', confirmed: 'packed', packed: 'shipped', shipped: 'delivered' }
 const NEXT_LABEL = { confirmed: 'Confirm order', packed: 'Mark as packed', shipped: 'Mark as shipped', delivered: 'Mark as delivered' }
+
+/** The marketplace's offer: accept the commission (confirms the order) or decline it. */
+function OfferPanel({ order, onChange }) {
+  const toast = useToast()
+  const [declining, setDeclining] = useState(false)
+  const [reason, setReason] = useState('')
+  const [busy, setBusy] = useState('')
+  const rate = Number(order.commission_rate || 0)
+  const commission = Math.round(Number(order.subtotal) * rate) / 100
+  const online = order.payment_method === 'online'
+
+  const act = async (what, call, done) => {
+    setBusy(what)
+    try {
+      onChange((await call()).data)
+      toast.success(done)
+    } catch (e) {
+      toast.error(errorMessage(e))
+    } finally {
+      setBusy('')
+    }
+  }
+  const accept = () => act('accept', () => api.post(`/seller/orders/${order.id}/accept`),
+    online ? 'Accepted — the buyer has been asked to pay' : 'Accepted — the order is confirmed')
+  const decline = () => act('decline', () => api.post(`/seller/orders/${order.id}/decline`, { reason }), 'Declined — our team will get back to you')
+
+  return (
+    <div className="space-y-4 rounded-2xl border border-amber-200 bg-amber-50/70 p-4">
+      <div className="flex items-start gap-3">
+        <Handshake className="mt-0.5 size-5 shrink-0 text-amber-800" />
+        <div>
+          <h3 className="font-semibold">Please accept this order</h3>
+          <p className="mt-0.5 text-sm text-ink/70">The order is only confirmed once you accept the marketplace commission below.</p>
+        </div>
+      </div>
+      <dl className="grid gap-2 rounded-xl bg-white p-3 text-sm sm:grid-cols-3">
+        <div><dt className="text-xs text-muted">Order value</dt><dd className="font-semibold">{money(order.subtotal)}</dd></div>
+        <div><dt className="text-xs text-muted">Commission</dt><dd className="font-semibold">{rate}% · {money(commission)}</dd></div>
+        <div>
+          <dt className="text-xs text-muted">{online ? 'You receive (after delivery)' : 'You collect in cash'}</dt>
+          <dd className="font-semibold text-brand-800">{money(online ? Number(order.total) - commission : order.total)}</dd>
+        </div>
+      </dl>
+      <p className="text-xs text-muted">
+        {online
+          ? 'The buyer pays online after you accept. Ship it once it shows as Confirmed; your share is paid out after delivery.'
+          : `Cash on delivery: you collect ${money(order.total)} from the buyer and pay ${money(commission)} commission to the marketplace (it's settled on your Payouts page).`}
+      </p>
+      {!declining ? (
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button variant="outline" onClick={() => setDeclining(true)} disabled={Boolean(busy)}>Decline</Button>
+          <Button onClick={accept} loading={busy === 'accept'}>Accept {rate}% commission</Button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <Field label="Why are you declining? (sent to the marketplace team)">
+            <Textarea rows={2} maxLength={300} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Commission too high, or out of stock" />
+          </Field>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setDeclining(false)} disabled={Boolean(busy)}>Back</Button>
+            <Button variant="danger-soft" onClick={decline} loading={busy === 'decline'} disabled={reason.trim().length < 3}>Decline offer</Button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 export function OrderPanel({ order, onChange, endpoint }) {
   const toast = useToast()
@@ -34,7 +101,8 @@ export function OrderPanel({ order, onChange, endpoint }) {
   return (
     <div className="space-y-5">
       <OrderMeta order={order} />
-      <OrderTimeline status={order.status} />
+      {order.status === 'seller_review' ? <OfferPanel order={order} onChange={onChange} /> : <OrderTimeline status={order.status} />}
+      {order.status !== 'seller_review' && Number(order.commission_rate) > 0 && <p className="-mt-2 text-xs text-muted">Marketplace commission: {Number(order.commission_rate)}%</p>}
       <div className="grid gap-5 sm:grid-cols-2">
         <div>
           <h3 className="mb-1 text-sm font-semibold">Items</h3>
@@ -171,7 +239,14 @@ export default function SellerOrders() {
 
   return (
     <>
-      <PageHeader title="Orders" subtitle="New orders are confirmed automatically. Tick several to pack or ship them together; shipped orders are marked delivered by themselves." />
+      <PageHeader title="Orders" subtitle="New orders arrive as offers from the marketplace: accept the commission to confirm them. Tick several to pack or ship them together; shipped orders are marked delivered by themselves." />
+      {count('seller_review') > 0 && tab !== 'seller_review' && (
+        <button type="button" onClick={() => setTab('seller_review')} className="mb-4 flex w-full items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-left text-sm text-amber-900 hover:bg-amber-100">
+          <Handshake className="size-5 shrink-0" />
+          <span className="flex-1"><strong>{count('seller_review')} order{count('seller_review') > 1 ? 's' : ''} waiting for you to accept.</strong> Check the commission and accept or decline.</span>
+          <span className="font-semibold underline">Review</span>
+        </button>
+      )}
       {error ? <ErrorBox message={error} onRetry={reload} /> : loading ? <Spinner /> : !data.length ? (
         <div className="card"><EmptyState icon={ShoppingBag} title="No orders yet" text="When buyers order your products, they appear here." /></div>
       ) : (
@@ -179,7 +254,7 @@ export default function SellerOrders() {
           <div className="mb-4">
             <Tabs value={tab} onChange={setTab} options={[
               { value: '', label: 'All', count: data.length },
-              ...['pending', 'confirmed', 'packed', 'shipped', 'delivered', 'cancelled'].map((s) => ({ value: s, label: s[0].toUpperCase() + s.slice(1), count: count(s) })),
+              ...['seller_review', 'pending', 'confirmed', 'packed', 'shipped', 'delivered', 'cancelled'].map((s) => ({ value: s, label: s === 'seller_review' ? 'To accept' : s[0].toUpperCase() + s.slice(1), count: count(s) })),
             ]} />
           </div>
           {picked.length > 0 && (

@@ -27,6 +27,7 @@ from app.services.pricing import validate_tiers
 from app.services.queries import PRODUCT_LOAD
 from app.services.serializers import cert_out, gi_out, order_out, product_out
 from app.services import automation, payments
+from app.services import orders as order_service
 from app.services import product_media as media
 from app.services.storage import get_storage, save_upload
 
@@ -326,7 +327,7 @@ def my_orders(
     )
     if status_filter:
         stmt = stmt.where(Order.status == status_filter)
-    return [order_out(o) for o in db.scalars(stmt.order_by(Order.created_at.desc()))]
+    return [order_out(o, commission=True) for o in db.scalars(stmt.order_by(Order.created_at.desc()))]
 
 
 @router.get("/orders/{order_id}", response_model=s.OrderOut)
@@ -340,7 +341,7 @@ def my_order(
     )
     if not o or o.status in HIDDEN_FROM_SELLER or _never_reached(o):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Order not found")
-    return order_out(o)
+    return order_out(o, commission=True)
 
 
 @router.patch("/orders/{order_id}/status", response_model=s.OrderOut)
@@ -358,9 +359,35 @@ def update_order_status(
     )
     if not o:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Order not found")
-    return order_out(change_status(
+    return order_out(commission=True, o=change_status(
         db, o, body.status, as_admin=False, courier=body.courier, tracking_number=body.tracking_number,
     ))
+
+
+def _offer(db: Session, seller: SellerProfile, order_id: int) -> Order:
+    o = db.scalar(
+        select(Order).where(Order.id == order_id, Order.seller_id == seller.id, SELLER_VISIBLE)
+        .options(*ORDER_LOAD).with_for_update(of=Order)
+    )
+    if not o:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Order not found")
+    return o
+
+
+@router.post("/orders/{order_id}/accept", response_model=s.OrderOut)
+def accept_offer(order_id: int, seller: SellerProfile = Depends(get_current_seller), db: Session = Depends(get_db)):
+    """Agree to the commission the marketplace offered: the order is confirmed (or, if paid
+    online, waits for the buyer's payment)."""
+    return order_out(order_service.seller_accept(db, _offer(db, seller, order_id)), commission=True)
+
+
+@router.post("/orders/{order_id}/decline", response_model=s.OrderOut)
+def decline_offer(
+    order_id: int, body: s.DeclineIn,
+    seller: SellerProfile = Depends(get_current_seller), db: Session = Depends(get_db),
+):
+    """Say no to the commission; the marketplace team gets back to you."""
+    return order_out(order_service.seller_decline(db, _offer(db, seller, order_id), body.reason.strip()), commission=True)
 
 
 @router.post("/orders/bulk-status", response_model=s.BulkStatusOut)
@@ -385,7 +412,7 @@ def bulk_status(
                 db, o, body.status, as_admin=False,
                 courier=body.courier, tracking_number=body.tracking.get(str(o.id)),
             )
-            updated.append(order_out(o))
+            updated.append(order_out(o, commission=True))
         except HTTPException as e:
             db.rollback()
             failed.append({"id": o.id, "order_number": o.order_number, "reason": e.detail})
@@ -397,7 +424,7 @@ def bulk_status(
 
 @router.get("/stats")
 def my_stats(seller: SellerProfile = Depends(get_current_seller), db: Session = Depends(get_db)):
-    live = Order.status.not_in((OrderStatus.CANCELLED, *HIDDEN_FROM_SELLER))
+    live = Order.status.not_in((OrderStatus.CANCELLED, OrderStatus.SELLER_REVIEW, *HIDDEN_FROM_SELLER))
     by_status = dict(
         db.execute(
             select(Order.status, func.count(Order.id))

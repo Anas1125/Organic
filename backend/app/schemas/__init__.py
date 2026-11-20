@@ -535,7 +535,9 @@ class OrderOut(ORM):
     buyer_email: str | None = None
     commission_rate: Decimal | None = None
     approved_at: datetime | None = None
+    accepted_at: datetime | None = None
     decline_reason: str | None = None
+    seller_response: str | None = None
     # Admin only: who to call about an enquiry.
     buyer_phone: str | None = None
     buyer_type: str | None = None

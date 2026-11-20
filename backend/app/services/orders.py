@@ -18,6 +18,7 @@ from app.services.queries import visible_products
 # Which statuses a seller may move an order to from each status.
 SELLER_FLOW: dict[str, set[str]] = {
     OrderStatus.ENQUIRY: set(),  # only the admin approves or declines an enquiry
+    OrderStatus.SELLER_REVIEW: set(),  # the seller answers with Accept / Decline instead
     OrderStatus.AWAITING_PAYMENT: set(),  # only the buyer (or the payment window) can end this
     OrderStatus.PENDING: {OrderStatus.CONFIRMED, OrderStatus.CANCELLED},
     OrderStatus.CONFIRMED: {OrderStatus.PACKED, OrderStatus.CANCELLED},
@@ -134,27 +135,56 @@ def _admin_emails(db: Session) -> list[str]:
 
 
 def approve(db: Session, order: Order, commission: Decimal) -> Order:
-    """The admin agreed terms with the seller. Cash on delivery goes to the seller now;
-    an online order waits for the buyer to pay (then goes to the seller)."""
-    if order.status != OrderStatus.ENQUIRY:
+    """The admin agreed terms with the seller by phone: send the seller the offer (with the
+    commission) to accept. Can be sent again with a new rate while the seller hasn't accepted."""
+    if order.status not in (OrderStatus.ENQUIRY, OrderStatus.SELLER_REVIEW):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "This enquiry has already been handled")
     order.commission_rate = commission
     order.approved_at = datetime.now(UTC)
+    order.status = OrderStatus.SELLER_REVIEW
+    db.commit()
+    db.refresh(order)
+    notify.offer_to_seller(order)
+    return order
+
+
+def seller_accept(db: Session, order: Order) -> Order:
+    """The seller agreed to the commission. Cash on delivery is confirmed now; an online
+    order waits for the buyer to pay (then the seller ships it)."""
+    if order.status != OrderStatus.SELLER_REVIEW:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "This order isn't waiting for your answer")
+    order.accepted_at = datetime.now(UTC)
+    order.seller_response = None
     if order.payment_method == PaymentMethod.ONLINE:
         order.status = OrderStatus.AWAITING_PAYMENT
-        # Its own payment reference, so each approved order is paid on its own
-        # (the other sellers' orders from the same checkout may be approved later).
+        # Its own payment reference, so each order is paid on its own
+        # (the other sellers' orders from the same checkout may be accepted later).
         order.checkout_ref = f"{order.checkout_ref[:20]}-{order.id}"
     else:
         order.status = first_status()
     db.commit()
     db.refresh(order)
     notify.enquiry_approved(order)
+    notify.seller_answered(order, accepted=True, admin_emails=_admin_emails(db))
+    return order
+
+
+def seller_decline(db: Session, order: Order, reason: str) -> Order:
+    """The seller said no to the offer: it goes back to the admin to agree new terms
+    (or decline the buyer). The buyer isn't told yet."""
+    if order.status != OrderStatus.SELLER_REVIEW:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "This order isn't waiting for your answer")
+    order.status = OrderStatus.ENQUIRY
+    order.approved_at = None
+    order.seller_response = reason
+    db.commit()
+    db.refresh(order)
+    notify.seller_answered(order, accepted=False, admin_emails=_admin_emails(db))
     return order
 
 
 def decline(db: Session, order: Order, reason: str) -> Order:
-    if order.status != OrderStatus.ENQUIRY:
+    if order.status not in (OrderStatus.ENQUIRY, OrderStatus.SELLER_REVIEW):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "This enquiry has already been handled")
     order.decline_reason = reason
     order = change_status(db, order, OrderStatus.CANCELLED, as_admin=True, notify_buyer=False)
@@ -190,6 +220,8 @@ def change_status(
         )
     if order.status == OrderStatus.ENQUIRY and new_status != OrderStatus.CANCELLED:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Approve the enquiry first")
+    if order.status == OrderStatus.SELLER_REVIEW and new_status != OrderStatus.CANCELLED:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Waiting for the seller to accept the commission")
     if order.status == OrderStatus.AWAITING_PAYMENT and new_status != OrderStatus.CANCELLED:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "This order hasn't been paid yet")
     if order.status == OrderStatus.ENQUIRY and new_status == OrderStatus.CANCELLED and not order.decline_reason:

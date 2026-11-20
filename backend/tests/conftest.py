@@ -125,12 +125,20 @@ def make_product(client, seller, admin, category, approve=True, **overrides):
 
 
 def approve_orders(client, admin, orders, commission="0"):
-    """Every checkout starts as an enquiry; approve it as the admin would."""
+    """Every checkout starts as an enquiry: the admin approves it, then the seller accepts
+    the commission (done here directly, since each order may belong to a different seller)."""
+    from app.db import SessionLocal
+    from app.models import Order
+    from app.services import orders as order_service
+
     out = []
     for o in orders:
         r = client.post(f"/api/v1/admin/orders/{o['id']}/approve", json={"commission_percent": commission}, headers=admin)
         assert r.status_code == 200, r.text
-        out.append(r.json())
+        assert r.json()["status"] == "seller_review"
+        with SessionLocal() as db:
+            order_service.seller_accept(db, db.get(Order, o["id"]))
+        out.append(client.get(f"/api/v1/admin/orders?q={o['order_number']}", headers=admin).json()[0])
     return out
 
 

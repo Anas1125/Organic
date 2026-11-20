@@ -16,7 +16,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 from fastapi import HTTPException, status
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.config import settings
@@ -173,7 +173,8 @@ def expire_stale(db: Session) -> None:
             Order.status == OrderStatus.AWAITING_PAYMENT,
             or_(
                 Order.approved_at.is_(None) & (Order.created_at < cutoff),
-                Order.approved_at < approved_cutoff,  # approved enquiries: hours, not minutes
+                # approved enquiries: hours from when the seller accepted, not minutes
+                func.coalesce(Order.accepted_at, Order.approved_at) < approved_cutoff,
             ),
         )
     ))

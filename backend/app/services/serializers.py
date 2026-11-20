@@ -89,8 +89,12 @@ def gi_out(g: GIRecord) -> s.GIRecordOut:
     )
 
 
-def order_out(o: Order) -> s.OrderOut:
+def order_out(o: Order, *, commission: bool = False) -> s.OrderOut:
+    """commission=True for the admin and the order's seller; buyers never see it."""
     out = s.OrderOut.model_validate(o)
+    if not commission:
+        out.commission_rate = None
+        out.seller_response = None
     out.buyer_name = o.buyer.full_name
     out.buyer_email = o.buyer.email
     if o.status == "shipped" and o.shipped_at and settings.auto_deliver_days > 0:

@@ -4,7 +4,7 @@ import { ORDER_STEPS, dateTime, money } from '../lib/format'
 import { StatusBadge } from './ui'
 
 export function OrderTimeline({ status, reason }) {
-  if (status === 'enquiry') {
+  if (status === 'enquiry' || status === 'seller_review') {
     return (
       <div className="flex items-start gap-2 rounded-xl bg-sky-50 px-4 py-3 text-sm font-medium text-sky-900">
         <Clock className="mt-0.5 size-4 shrink-0" /> Enquiry sent — our team is confirming availability with the seller. We'll email you once it's approved; nothing has been charged.

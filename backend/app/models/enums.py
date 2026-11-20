@@ -40,6 +40,7 @@ GI_BADGE_TYPES = ("registered_product", "authorised_user")
 
 class OrderStatus(StrEnum):
     ENQUIRY = "enquiry"  # new order waiting for the admin to agree terms with the seller
+    SELLER_REVIEW = "seller_review"  # admin approved; the seller must accept the commission
     AWAITING_PAYMENT = "awaiting_payment"  # online payment not finished yet; sellers don't see it
     PENDING = "pending"
     CONFIRMED = "confirmed"

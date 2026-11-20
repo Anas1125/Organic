@@ -281,6 +281,9 @@ class Order(TimestampMixin, Base):
     # Enquiry review: when the admin approved it, or why it was declined.
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     decline_reason: Mapped[str | None] = mapped_column(String(300))
+    # The seller's answer to the offer: when they accepted, or why they said no.
+    accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    seller_response: Mapped[str | None] = mapped_column(String(300))
     # Settlement with the seller: which payout included it and for how much (+ owed to the
     # seller for online payments, - commission owed by the seller for cash on delivery).
     payout_id: Mapped[int | None] = mapped_column(ForeignKey("payouts.id"), index=True)

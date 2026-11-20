@@ -123,6 +123,11 @@ def test_enquiry_approve_and_decline(client, seller, admin, buyer, category, mon
     assert client.post(f"/api/v1/admin/orders/{o['id']}/approve", json={"commission_percent": "8"}, headers=seller).status_code == 403
     r = client.post(f"/api/v1/admin/orders/{o['id']}/approve", json={"commission_percent": "8.5"}, headers=admin)
     assert r.status_code == 200 and r.json()["commission_rate"] == "8.50" and r.json()["approved_at"]
+    assert r.json()["status"] == "seller_review"
+    # The seller gets the offer and accepts it
+    assert any(s.startswith(f"Please accept order {o['order_number']}") for _, s in sent)
+    r = client.post(f"/api/v1/seller/orders/{o['id']}/accept", headers=seller)
+    assert r.status_code == 200 and r.json()["status"] == "confirmed" and r.json()["accepted_at"]
     assert client.post(f"/api/v1/admin/orders/{o['id']}/approve", json={"commission_percent": "8"}, headers=admin).status_code == 400
 
     # A second enquiry is declined: cancelled, stock back, buyer told why
@@ -154,3 +159,36 @@ def test_seller_never_sees_declined_or_withdrawn_enquiries(client, seller, admin
     assert client.get("/api/v1/seller/orders", headers=seller).json() == []
     assert client.get(f"/api/v1/seller/orders/{ids[0]}", headers=seller).status_code == 404
     assert client.get("/api/v1/seller/stats", headers=seller).json()["total_orders"] == 0
+
+
+
+def test_seller_declines_commission_then_accepts_new_offer(client, seller, admin, buyer, category, monkeypatch):
+    sent = []
+    monkeypatch.setattr("app.services.notify.send_email", lambda to, subject, *a, **k: sent.append((to, subject)))
+    pid = make_product(client, seller, admin, category, stock=10)
+    client.post("/api/v1/cart/items", json={"product_id": pid, "quantity": 2}, headers=buyer)
+    o = client.post("/api/v1/orders/checkout", json=ADDRESS, headers=buyer).json()[0]
+    client.post(f"/api/v1/admin/orders/{o['id']}/approve", json={"commission_percent": "15"}, headers=admin)
+
+    # The seller sees the offer with its commission; the buyer never sees the commission
+    mine = client.get("/api/v1/seller/orders", headers=seller).json()[0]
+    assert mine["status"] == "seller_review" and mine["commission_rate"] == "15.00"
+    assert client.get(f"/api/v1/orders/{o['id']}", headers=buyer).json()["commission_rate"] is None
+    # ...and can't ship it before accepting
+    assert client.patch(f"/api/v1/seller/orders/{o['id']}/status", json={"status": "packed"}, headers=seller).status_code == 400
+
+    r = client.post(f"/api/v1/seller/orders/{o['id']}/decline", json={"reason": "15% is too high"}, headers=seller)
+    assert r.json()["status"] == "enquiry"
+    assert any("declined the offer" in s for _, s in sent)  # admin told
+    assert client.get("/api/v1/seller/orders", headers=seller).json() == []  # back with the admin
+    back = client.get("/api/v1/admin/orders?status=enquiry", headers=admin).json()[0]
+    assert back["seller_response"] == "15% is too high"
+
+    # New offer at 10% -> accepted
+    client.post(f"/api/v1/admin/orders/{o['id']}/approve", json={"commission_percent": "10"}, headers=admin)
+    r = client.post(f"/api/v1/seller/orders/{o['id']}/accept", headers=seller)
+    assert r.json()["status"] == "confirmed" and r.json()["commission_rate"] == "10.00"
+    assert f"Order confirmed — {o['order_number']}" in {s for _, s in sent}  # buyer told
+    # Another seller can't answer it
+    other = make_seller(client, admin, "x2@test.io")
+    assert client.post(f"/api/v1/seller/orders/{o['id']}/accept", headers=other).status_code == 404

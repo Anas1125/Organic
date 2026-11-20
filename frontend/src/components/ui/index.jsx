@@ -96,6 +96,8 @@ export function ErrorBox({ message, onRetry }) {
   )
 }
 
+const STATUS_LABELS = { seller_review: 'Awaiting seller', awaiting_payment: 'Awaiting payment' }
+
 const STATUS_STYLES = {
   approved: 'bg-brand-100 text-brand-800',
   verified: 'bg-brand-100 text-brand-800',
@@ -112,6 +114,7 @@ const STATUS_STYLES = {
   refunded: 'bg-gray-100 text-gray-700',
   awaiting_payment: 'bg-amber-100 text-amber-900',
   enquiry: 'bg-sky-100 text-sky-900',
+  seller_review: 'bg-amber-100 text-amber-900',
   failed: 'bg-red-50 text-red-700',
   refund_pending: 'bg-sky-50 text-sky-800',
   refund_failed: 'bg-red-50 text-red-700',
@@ -123,7 +126,7 @@ export function StatusBadge({ status, label }) {
   return (
     <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_STYLES[status] || 'bg-gray-100 text-gray-700'}`}>
       <span className="size-1.5 rounded-full bg-current opacity-70" />
-      {label || titleCase(status)}
+      {label || STATUS_LABELS[status] || titleCase(status)}
     </span>
   )
 }

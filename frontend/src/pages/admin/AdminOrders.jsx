@@ -30,9 +30,12 @@ function EnquiryPanel({ order, onChange }) {
   const [declining, setDeclining] = useState(false)
   const [reason, setReason] = useState('')
   const [busy, setBusy] = useState('')
+  const waiting = order.status === 'seller_review'
   useEffect(() => {
+    // Start from the rate already offered (or turned down), else the default.
+    if (order.approved_at || order.seller_response) return setPct(String(Number(order.commission_rate)))
     api.get('/admin/payouts-commission').then(({ data }) => setPct((p) => p || String(Number(data.commission_percent)))).catch(() => setPct((p) => p || '0'))
-  }, [])
+  }, [order.approved_at, order.seller_response, order.commission_rate])
   const commission = (Number(order.subtotal) * Number(pct || 0)) / 100
 
   const act = async (what, call, done) => {
@@ -47,18 +50,25 @@ function EnquiryPanel({ order, onChange }) {
     }
   }
   const approve = () => act('approve', () => api.post(`/admin/orders/${order.id}/approve`, { commission_percent: pct || '0' }),
-    order.payment_method === 'online' ? 'Approved — the buyer has been asked to pay' : 'Approved — sent to the seller')
+    waiting ? 'New offer sent to the seller' : 'Sent to the seller to accept')
   const decline = () => act('decline', () => api.post(`/admin/orders/${order.id}/decline`, { reason }), 'Enquiry declined — the buyer has been told')
 
   return (
     <div className="space-y-4 rounded-2xl border border-sky-200 bg-sky-50/60 p-4">
       <div>
-        <h3 className="font-semibold">New enquiry — waiting for you</h3>
+        <h3 className="font-semibold">{waiting ? `Waiting for ${order.seller.business_name} to accept ${Number(order.commission_rate)}% commission` : 'New enquiry — waiting for you'}</h3>
         <p className="mt-0.5 text-sm text-ink/70">
-          Contact the seller to confirm stock and price, and agree your commission. The seller doesn't see this order until you approve it.
-          {order.payment_method === 'online' ? ' The buyer pays online after you approve.' : ' Cash on delivery: the seller collects the money.'}
+          {waiting
+            ? 'The seller has been emailed the offer and sees it in their Seller hub. You can send a new rate, or decline the order for the buyer.'
+            : 'Contact the seller to confirm stock and price, and agree your commission. When you approve, the seller is asked to accept that commission; only then is the order confirmed.'}
+          {order.payment_method === 'online' ? ' The buyer pays online once the seller accepts.' : ' Cash on delivery: the seller collects the money.'}
         </p>
       </div>
+      {order.seller_response && !waiting && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+          <strong>The seller declined your offer of {Number(order.commission_rate)}%:</strong> {order.seller_response}
+        </div>
+      )}
       <div className="grid gap-3 sm:grid-cols-2">
         <Contact title="Seller" name={order.seller.business_name} sub={order.seller_owner} email={order.seller_email} phone={order.seller_phone} />
         <Contact title="Buyer" name={order.buyer_name} sub={[order.buyer_type, `${order.shipping_city}, ${order.shipping_state}`].filter(Boolean).join(' · ')} email={order.buyer_email} phone={order.buyer_phone || order.shipping_phone} />
@@ -71,7 +81,9 @@ function EnquiryPanel({ order, onChange }) {
           <div className="pb-2.5 text-sm text-muted">You earn <strong className="text-ink">{money(commission)}</strong> of {money(order.subtotal)}</div>
           <div className="ml-auto flex gap-2">
             <Button variant="outline" onClick={() => setDeclining(true)} disabled={Boolean(busy)}>Decline</Button>
-            <Button onClick={approve} loading={busy === 'approve'} disabled={pct === '' || Number(pct) < 0 || Number(pct) > 50}>Approve</Button>
+            <Button onClick={approve} loading={busy === 'approve'} disabled={pct === '' || Number(pct) < 0 || Number(pct) > 50 || (waiting && Number(pct) === Number(order.commission_rate))}>
+              {waiting ? 'Send new offer' : 'Approve & send to seller'}
+            </Button>
           </div>
         </div>
       ) : (
@@ -122,7 +134,7 @@ function AdminOrderPanel({ order, onChange }) {
     }
   }
 
-  if (order.status === 'enquiry') {
+  if (order.status === 'enquiry' || order.status === 'seller_review') {
     return (
       <div className="space-y-5">
         <OrderMeta order={order} />
@@ -186,7 +198,7 @@ export function AdminOrders() {
     <>
       <PageHeader title="All orders" subtitle="New orders arrive as enquiries: agree terms with the seller, then approve or decline. Admins can also override any order’s status or payment." />
       <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <Tabs value={tab} onChange={setTab} options={[{ value: '', label: 'All', count: data?.length }, ...['enquiry', 'awaiting_payment', ...ORDER_STEPS, 'cancelled'].map((s) => ({ value: s, label: { enquiry: 'Enquiries', awaiting_payment: 'Unpaid' }[s] || s[0].toUpperCase() + s.slice(1), count: count(s) }))]} />
+        <Tabs value={tab} onChange={setTab} options={[{ value: '', label: 'All', count: data?.length }, ...['enquiry', 'seller_review', 'awaiting_payment', ...ORDER_STEPS, 'cancelled'].map((s) => ({ value: s, label: { enquiry: 'Enquiries', seller_review: 'Awaiting seller', awaiting_payment: 'Unpaid' }[s] || s[0].toUpperCase() + s.slice(1), count: count(s) }))]} />
         <div className="relative lg:w-64">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
           <input className="input pl-9" placeholder="Order no., buyer or seller" value={q} onChange={(e) => setQ(e.target.value)} />

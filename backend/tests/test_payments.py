@@ -143,10 +143,10 @@ def test_unpaid_orders_expire(client, buyer, seller, admin, category, rzp):
     with SessionLocal() as db:
         db.get(Order, orders[0]["id"]).created_at = datetime.now(UTC) - timedelta(hours=2)
         db.commit()
-    # Approved orders get hours to pay, not minutes
+    # Accepted orders get hours to pay, not minutes
     assert client.get("/api/v1/orders", headers=buyer).json()[0]["status"] == "awaiting_payment"
     with SessionLocal() as db:
-        db.get(Order, orders[0]["id"]).approved_at = datetime.now(UTC) - timedelta(hours=settings.approved_payment_hours + 1)
+        db.get(Order, orders[0]["id"]).accepted_at = datetime.now(UTC) - timedelta(hours=settings.approved_payment_hours + 1)
         db.commit()
     got = client.get("/api/v1/orders", headers=buyer).json()[0]
     assert got["status"] == "cancelled" and _stock(pid) == 10
@@ -158,7 +158,7 @@ def test_paid_but_browser_closed_is_not_expired(client, buyer, seller, admin, ca
     start = client.post(f"/api/v1/payments/checkout/{orders[0]['checkout_ref']}/start", headers=buyer).json()
     rzp.pay(start["razorpay_order_id"])
     with SessionLocal() as db:
-        db.get(Order, orders[0]["id"]).approved_at = datetime.now(UTC) - timedelta(hours=settings.approved_payment_hours + 1)
+        db.get(Order, orders[0]["id"]).accepted_at = datetime.now(UTC) - timedelta(hours=settings.approved_payment_hours + 1)
         db.commit()
     got = client.get("/api/v1/orders", headers=buyer).json()[0]
     assert got["status"] == "confirmed" and got["payment_status"] == "paid"
@@ -212,7 +212,8 @@ def test_status_emails(client, buyer, seller, admin, category, mails):
     subjects = {s for _, s in mails}
     assert f"Enquiry received — {o['order_number']}" in subjects  # to the buyer
     assert any(s.startswith(f"New enquiry {o['order_number']}") for s in subjects)  # to the admin
-    assert {f"Order confirmed — {o['order_number']}", f"New order {o['order_number']}"} <= subjects  # once approved
+    assert any(s.startswith(f"Please accept order {o['order_number']}") for s in subjects)  # offer to the seller
+    assert f"Order confirmed — {o['order_number']}" in subjects  # to the buyer, once the seller accepts
     assert o["status"] == "confirmed"  # confirmed automatically once approved
     for st, subject in [("packed", "Order packed"), ("shipped", "Out for delivery"), ("delivered", "Order delivered")]:
         client.patch(f"/api/v1/seller/orders/{o['id']}/status", json={"status": st}, headers=seller)

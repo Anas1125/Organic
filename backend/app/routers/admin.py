@@ -51,7 +51,9 @@ def stats(db: Session = Depends(get_db)):
     def count(model, *where):
         return db.scalar(select(func.count()).select_from(model).where(*where))
 
-    live = Order.status.not_in((OrderStatus.CANCELLED, OrderStatus.AWAITING_PAYMENT, OrderStatus.ENQUIRY))
+    live = Order.status.not_in(
+        (OrderStatus.CANCELLED, OrderStatus.AWAITING_PAYMENT, OrderStatus.ENQUIRY, OrderStatus.SELLER_REVIEW)
+    )
     return {
         "buyers": count(User, User.role == Role.BUYER),
         "sellers": count(SellerProfile),
@@ -500,7 +502,7 @@ def review_gi(
 
 def admin_order_out(o: Order) -> s.OrderOut:
     """Order plus the buyer's and seller's contact details, for following up enquiries."""
-    out = order_out(o)
+    out = order_out(o, commission=True)
     out.buyer_phone = o.buyer.phone
     out.buyer_type = o.buyer.buyer_type
     owner = o.seller.user
