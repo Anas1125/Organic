@@ -1,4 +1,4 @@
-import { Copy, Percent, Wallet } from 'lucide-react'
+import { Copy, Percent, Search, Wallet } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import api, { errorMessage } from '../../api/client'
 import { HistoryTable, LinesTable, PayoutDetailsView, balanceText } from '../../components/payouts'
@@ -121,12 +121,18 @@ function SettleDialog({ sellerId, onClose, onDone }) {
 export default function AdminPayouts() {
   const { data, setData, loading, error, reload } = useFetch('/admin/payouts')
   const [open, setOpen] = useState(null)
+  const [q, setQ] = useState('')
   if (loading && !data) return <Spinner />
   if (error) return <ErrorBox message={error} onRetry={reload} />
 
   const due = data.sellers.filter((r) => r.order_count > 0)
   const toPay = due.reduce((t, r) => t + Math.max(0, Number(r.balance)), 0)
   const toCollect = due.reduce((t, r) => t + Math.max(0, -Number(r.balance)), 0)
+  const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean)
+  const shown = data.sellers.filter((r) => {
+    const text = [r.business_name, r.email, r.phone, r.details.payout_upi, r.details.bank_account_name].join(' ').toLowerCase()
+    return words.every((w) => text.includes(w))
+  })
 
   return (
     <>
@@ -139,10 +145,16 @@ export default function AdminPayouts() {
       </div>
 
       <div className="card mt-6 overflow-hidden">
-        <h2 className="border-b border-line px-5 py-4 font-semibold">Sellers</h2>
-        {!data.sellers.length ? <EmptyState icon={Wallet} title="No sellers yet" /> : (
+        <div className="flex flex-col gap-3 border-b border-line px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="font-semibold">Sellers{words.length > 0 && <span className="ml-2 text-sm font-normal text-muted">{shown.length} of {data.sellers.length}</span>}</h2>
+          <div className="relative w-full sm:w-80">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
+            <input type="search" className="input pl-9" placeholder="Search seller, email, phone or UPI" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search sellers" />
+          </div>
+        </div>
+        {!data.sellers.length ? <EmptyState icon={Wallet} title="No sellers yet" /> : !shown.length ? <EmptyState icon={Search} title={`No sellers match “${q.trim()}”`} /> : (
           <ul className="divide-y divide-line">
-            {data.sellers.map((r) => (
+            {shown.map((r) => (
               <li key={r.seller_id} className="flex flex-wrap items-center gap-3 px-5 py-3.5">
                 <div className="min-w-0 flex-1">
                   <div className="truncate font-medium">{r.business_name}</div>
