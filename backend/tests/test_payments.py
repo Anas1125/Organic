@@ -11,7 +11,7 @@ import pytest
 from app.core.config import settings
 from app.db import SessionLocal
 from app.models import Order, Product
-from tests.conftest import make_product
+from tests.conftest import approve_orders, make_product, place_order
 from tests.test_orders import ADDRESS
 
 SECRET = "test_secret"
@@ -73,7 +73,8 @@ def _checkout_online(client, buyer, seller, admin, category, qty=2):
     pid = make_product(client, seller, admin, category, stock=10)
     client.post("/api/v1/cart/items", json={"product_id": pid, "quantity": qty}, headers=buyer)
     orders = client.post("/api/v1/orders/checkout", json={**ADDRESS, "payment_method": "online"}, headers=buyer).json()
-    return pid, orders
+    assert orders[0]["status"] == "enquiry"  # nothing to pay until the admin approves
+    return pid, approve_orders(client, admin, orders)
 
 
 def _stock(pid):
@@ -93,8 +94,11 @@ def test_successful_payment(client, buyer, seller, admin, category, rzp, mails):
     pid, orders = _checkout_online(client, buyer, seller, admin, category)
     o = orders[0]
     assert o["status"] == "awaiting_payment" and _stock(pid) == 8
-    # Sellers don't see unpaid orders, and nobody is emailed yet
-    assert client.get("/api/v1/seller/orders", headers=seller).json() == [] and mails == []
+    # Approved: the buyer is asked to pay; the seller doesn't see it or hear about it yet
+    assert f"Approved — please pay for {o['order_number']}" in {s for _, s in mails}
+    assert not any(s.startswith("New order") for _, s in mails)
+    assert client.get("/api/v1/seller/orders", headers=seller).json() == []
+    mails.clear()
 
     start = client.post(f"/api/v1/payments/checkout/{o['checkout_ref']}/start", headers=buyer).json()
     assert start["amount"] == 20000 and start["key_id"] == "rzp_test_x"
@@ -139,6 +143,11 @@ def test_unpaid_orders_expire(client, buyer, seller, admin, category, rzp):
     with SessionLocal() as db:
         db.get(Order, orders[0]["id"]).created_at = datetime.now(UTC) - timedelta(hours=2)
         db.commit()
+    # Approved orders get hours to pay, not minutes
+    assert client.get("/api/v1/orders", headers=buyer).json()[0]["status"] == "awaiting_payment"
+    with SessionLocal() as db:
+        db.get(Order, orders[0]["id"]).approved_at = datetime.now(UTC) - timedelta(hours=settings.approved_payment_hours + 1)
+        db.commit()
     got = client.get("/api/v1/orders", headers=buyer).json()[0]
     assert got["status"] == "cancelled" and _stock(pid) == 10
 
@@ -149,7 +158,7 @@ def test_paid_but_browser_closed_is_not_expired(client, buyer, seller, admin, ca
     start = client.post(f"/api/v1/payments/checkout/{orders[0]['checkout_ref']}/start", headers=buyer).json()
     rzp.pay(start["razorpay_order_id"])
     with SessionLocal() as db:
-        db.get(Order, orders[0]["id"]).created_at = datetime.now(UTC) - timedelta(hours=2)
+        db.get(Order, orders[0]["id"]).approved_at = datetime.now(UTC) - timedelta(hours=settings.approved_payment_hours + 1)
         db.commit()
     got = client.get("/api/v1/orders", headers=buyer).json()[0]
     assert got["status"] == "confirmed" and got["payment_status"] == "paid"
@@ -199,9 +208,12 @@ def test_webhooks(client, buyer, seller, admin, category, rzp, mails):
 def test_status_emails(client, buyer, seller, admin, category, mails):
     pid = make_product(client, seller, admin, category)
     client.post("/api/v1/cart/items", json={"product_id": pid, "quantity": 1}, headers=buyer)
-    o = client.post("/api/v1/orders/checkout", json=ADDRESS, headers=buyer).json()[0]
-    assert {s for _, s in mails} == {f"Order placed — {o['order_number']}", f"New order {o['order_number']}"}
-    assert o["status"] == "confirmed"  # confirmed automatically when placed
+    o = place_order(client, buyer, admin, ADDRESS)[0]
+    subjects = {s for _, s in mails}
+    assert f"Enquiry received — {o['order_number']}" in subjects  # to the buyer
+    assert any(s.startswith(f"New enquiry {o['order_number']}") for s in subjects)  # to the admin
+    assert {f"Order confirmed — {o['order_number']}", f"New order {o['order_number']}"} <= subjects  # once approved
+    assert o["status"] == "confirmed"  # confirmed automatically once approved
     for st, subject in [("packed", "Order packed"), ("shipped", "Out for delivery"), ("delivered", "Order delivered")]:
         client.patch(f"/api/v1/seller/orders/{o['id']}/status", json={"status": st}, headers=seller)
         assert mails[-1][1] == f"{subject} — {o['order_number']}"

@@ -23,6 +23,7 @@ from app.models import (
 )
 from app.models.enums import GIVerification, OrderStatus, PaymentMethod, PaymentStatus, ReviewStatus, Role
 from app.services import automation, payments
+from app.services import orders as order_service
 from app.services import product_media as media
 from app.services.orders import ORDER_LOAD, change_status
 from app.services.queries import PRODUCT_LOAD
@@ -50,7 +51,7 @@ def stats(db: Session = Depends(get_db)):
     def count(model, *where):
         return db.scalar(select(func.count()).select_from(model).where(*where))
 
-    live = Order.status.not_in((OrderStatus.CANCELLED, OrderStatus.AWAITING_PAYMENT))
+    live = Order.status.not_in((OrderStatus.CANCELLED, OrderStatus.AWAITING_PAYMENT, OrderStatus.ENQUIRY))
     return {
         "buyers": count(User, User.role == Role.BUYER),
         "sellers": count(SellerProfile),
@@ -63,6 +64,7 @@ def stats(db: Session = Depends(get_db)):
         ),
         "pending_gi": count(GIRecord, GIRecord.verification_status == GIVerification.PENDING),
         "orders": count(Order),
+        "enquiries": count(Order, Order.status == OrderStatus.ENQUIRY),
         "open_orders": count(
             Order, Order.status.in_([OrderStatus.PENDING, OrderStatus.CONFIRMED, OrderStatus.PACKED])
         ),
@@ -496,6 +498,18 @@ def review_gi(
 # ---------- Orders ----------
 
 
+def admin_order_out(o: Order) -> s.OrderOut:
+    """Order plus the buyer's and seller's contact details, for following up enquiries."""
+    out = order_out(o)
+    out.buyer_phone = o.buyer.phone
+    out.buyer_type = o.buyer.buyer_type
+    owner = o.seller.user
+    out.seller_owner = owner.full_name if owner else None
+    out.seller_email = owner.email if owner else None
+    out.seller_phone = o.seller.phone or (owner.phone if owner else None)
+    return out
+
+
 @router.get("/orders", response_model=list[s.OrderOut])
 def orders(
     db: Session = Depends(get_db),
@@ -508,7 +522,25 @@ def orders(
         stmt = stmt.where(Order.status == status_filter)
     if q:
         stmt = stmt.where(Order.order_number.ilike(f"%{q}%"))
-    return [order_out(o) for o in db.scalars(stmt.order_by(Order.created_at.desc()).limit(500))]
+    return [admin_order_out(o) for o in db.scalars(stmt.order_by(Order.created_at.desc()).limit(500))]
+
+
+def _locked_order(db: Session, order_id: int) -> Order:
+    o = db.scalar(select(Order).where(Order.id == order_id).options(*ORDER_LOAD).with_for_update(of=Order))
+    if not o:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Order not found")
+    return o
+
+
+@router.post("/orders/{order_id}/approve", response_model=s.OrderOut)
+def approve_enquiry(order_id: int, body: s.ApproveIn, db: Session = Depends(get_db)):
+    """Terms agreed with the seller: send it on (cash) or ask the buyer to pay (online)."""
+    return admin_order_out(order_service.approve(db, _locked_order(db, order_id), body.commission_percent))
+
+
+@router.post("/orders/{order_id}/decline", response_model=s.OrderOut)
+def decline_enquiry(order_id: int, body: s.DeclineIn, db: Session = Depends(get_db)):
+    return admin_order_out(order_service.decline(db, _locked_order(db, order_id), body.reason.strip()))
 
 
 @router.patch("/orders/{order_id}/status", response_model=s.OrderOut)
@@ -524,7 +556,7 @@ def set_order_status(order_id: int, body: s.OrderStatusIn, db: Session = Depends
         o.payment_status = body.payment_status
         db.commit()
         db.refresh(o)
-    return order_out(o)
+    return admin_order_out(o)
 
 
 @router.post("/orders/{order_id}/refund", response_model=s.OrderOut)
@@ -541,7 +573,7 @@ def refund_order(order_id: int, db: Session = Depends(get_db)):
     db.refresh(o)
     if o.payment_status == PaymentStatus.REFUND_FAILED:
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"Refund failed — {o.refund_error}")
-    return order_out(o)
+    return admin_order_out(o)
 
 
 # ---------- Contact messages ----------

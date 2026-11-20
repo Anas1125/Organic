@@ -9,9 +9,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useCart } from '../../context/CartContext'
 import { useToast } from '../../context/ToastContext'
 import { money } from '../../lib/format'
-import { payOnline } from '../../lib/payments'
 import useFetch from '../../hooks/useFetch'
-import { useSite } from '../../context/SiteContext'
 
 function CartLine({ item, onChange }) {
   const { setCart } = useCart()
@@ -98,7 +96,6 @@ function Checkout({ cart }) {
   const chosen = saved?.find((a) => a.id === choice)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const { site } = useSite()
   const { data: payCfg } = useFetch('/payments/config')
   const [method, setMethod] = useState('online')
   const online = payCfg?.online_enabled && method === 'online'
@@ -116,23 +113,10 @@ function Checkout({ cart }) {
       }
       const { data } = await api.post('/orders/checkout', { ...address, notes: notes || null, payment_method: online ? 'online' : 'cod' })
       await refresh()
-      const numbers = data.map((o) => o.order_number)
-      if (!online) {
-        toast.success(data.length > 1 ? `${data.length} orders placed — one per seller` : 'Order placed!')
-        return navigate('/orders', { state: { placed: numbers } })
-      }
-      // Orders now wait for payment; stock is held for a short while.
-      try {
-        const res = await payOnline(data[0].checkout_ref, site.site_name)
-        if (res.result === 'paid') {
-          toast.success('Payment successful — order placed!')
-          return navigate('/orders', { state: { placed: numbers, paid: true } })
-        }
-        navigate('/orders', { state: { unpaid: data[0].checkout_ref, failed: res.failed } })
-      } catch (err) {
-        toast.error(err.message || errorMessage(err))
-        navigate('/orders', { state: { unpaid: data[0].checkout_ref } })
-      }
+      // Every order starts as an enquiry: our team confirms it with the seller first,
+      // and online orders are paid once approved (nothing is charged now).
+      toast.success(data.length > 1 ? `${data.length} enquiries sent — one per seller` : 'Enquiry sent!')
+      return navigate('/orders', { state: { placed: data.map((o) => o.order_number) } })
     } catch (err) {
       setError(errorMessage(err))
       refresh()
@@ -167,14 +151,15 @@ function Checkout({ cart }) {
         <span className="label">Payment</span>
         <div className="space-y-2">
           {payCfg?.online_enabled && (
-            <PayOption active={method === 'online'} onClick={() => setMethod('online')} icon={Smartphone} title="UPI, card or netbanking" text="Pay securely now with Razorpay — GPay, PhonePe, Paytm and more" />
+            <PayOption active={method === 'online'} onClick={() => setMethod('online')} icon={Smartphone} title="UPI, card or netbanking" text="Pay with Razorpay (GPay, PhonePe, Paytm and more) once your order is approved" />
           )}
-          <PayOption active={!online} onClick={() => setMethod('cod')} icon={Truck} title="Cash on delivery" text="Pay each seller when your order arrives" />
+          <PayOption active={!online} onClick={() => setMethod('cod')} icon={Truck} title="Cash on delivery" text="Pay the seller when your order arrives" />
         </div>
       </div>
       <Button type="submit" size="lg" className="w-full" loading={busy} disabled={!cart.can_checkout || choice === null}>
-        {online ? `Pay ${money(cart.total)}` : `Place order · ${money(cart.total)}`}
+        Send enquiry · {money(cart.total)}
       </Button>
+      <p className="text-center text-xs text-muted">Our team confirms availability with the seller and emails you once it's approved. Nothing is charged now.</p>
       {online && <p className="flex items-center justify-center gap-1.5 text-center text-xs text-muted"><ShieldCheck className="size-3.5" /> Payments are processed by Razorpay. We never see your card or UPI PIN.</p>}
       {!cart.can_checkout && <p className="text-center text-xs text-red-600">Fix the highlighted items in your cart first.</p>}
     </form>

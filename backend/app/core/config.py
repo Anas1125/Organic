@@ -47,6 +47,7 @@ class Settings(BaseSettings):
     razorpay_key_id: str | None = None
     razorpay_key_secret: str | None = None
     razorpay_webhook_secret: str | None = None
+    approved_payment_hours: int = 48  # time to pay an online order after the admin approves it
     payment_window_minutes: int = 30  # unpaid online orders are cancelled after this
 
     # Order automation (no courier account needed)

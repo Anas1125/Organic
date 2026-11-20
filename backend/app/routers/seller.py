@@ -32,6 +32,9 @@ from app.services.storage import get_storage, save_upload
 
 router = APIRouter(prefix="/seller", tags=["Seller"])
 
+# The seller only hears about an order once the admin approved it (and, online, it's paid).
+HIDDEN_FROM_SELLER = (OrderStatus.ENQUIRY, OrderStatus.AWAITING_PAYMENT)
+
 MAX_IMAGES = media.MAX_IMAGES
 # Changing these on an approved product sends it back for admin review.
 REVIEWED_FIELDS = {
@@ -302,7 +305,7 @@ def my_orders(
     automation.run(db)
     stmt = (
         select(Order)
-        .where(Order.seller_id == seller.id, Order.status != OrderStatus.AWAITING_PAYMENT)
+        .where(Order.seller_id == seller.id, Order.status.not_in(HIDDEN_FROM_SELLER))
         .options(*ORDER_LOAD)
     )
     if status_filter:
@@ -319,7 +322,7 @@ def my_order(
     o = db.scalar(
         select(Order).where(Order.id == order_id, Order.seller_id == seller.id).options(*ORDER_LOAD)
     )
-    if not o or o.status == OrderStatus.AWAITING_PAYMENT:
+    if not o or o.status in HIDDEN_FROM_SELLER:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Order not found")
     return order_out(o)
 
@@ -333,7 +336,7 @@ def update_order_status(
 ):
     o = db.scalar(
         select(Order)
-        .where(Order.id == order_id, Order.seller_id == seller.id)
+        .where(Order.id == order_id, Order.seller_id == seller.id, Order.status.not_in(HIDDEN_FROM_SELLER))
         .options(*ORDER_LOAD)
         .with_for_update(of=Order)
     )
@@ -354,7 +357,7 @@ def bulk_status(
     its own; ones that can't move are reported back instead of stopping the rest."""
     orders = db.scalars(
         select(Order)
-        .where(Order.id.in_(body.order_ids), Order.seller_id == seller.id)
+        .where(Order.id.in_(body.order_ids), Order.seller_id == seller.id, Order.status.not_in(HIDDEN_FROM_SELLER))
         .options(*ORDER_LOAD)
         .with_for_update(of=Order)
     ).all()
@@ -378,11 +381,11 @@ def bulk_status(
 
 @router.get("/stats")
 def my_stats(seller: SellerProfile = Depends(get_current_seller), db: Session = Depends(get_db)):
-    live = Order.status.not_in((OrderStatus.CANCELLED, OrderStatus.AWAITING_PAYMENT))
+    live = Order.status.not_in((OrderStatus.CANCELLED, *HIDDEN_FROM_SELLER))
     by_status = dict(
         db.execute(
             select(Order.status, func.count(Order.id))
-            .where(Order.seller_id == seller.id, Order.status != OrderStatus.AWAITING_PAYMENT)
+            .where(Order.seller_id == seller.id, Order.status.not_in(HIDDEN_FROM_SELLER))
             .group_by(Order.status)
         ).all()
     )

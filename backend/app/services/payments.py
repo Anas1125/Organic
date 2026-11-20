@@ -1,7 +1,8 @@
 """Online payments with Razorpay: start, confirm, failure, expiry and refunds.
 
 Life of an online checkout:
-  1. Checkout creates the orders as "awaiting_payment" and holds the stock.
+  1. Checkout creates the orders as "enquiry"; once the admin approves one it becomes
+     "awaiting_payment" (with its own reference) and the stock stays held.
   2. start_payment() creates a Razorpay order; the buyer pays in Razorpay's window.
   3. confirm_paid() (from the browser, and again from the webhook) checks the payment
      with Razorpay and moves the orders to "pending" for the sellers. Safe to repeat.
@@ -15,7 +16,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.config import settings
@@ -164,10 +165,16 @@ def cancel_unpaid(db: Session, ref: str, *, buyer: User | None, why: str) -> lis
 def expire_stale(db: Session) -> None:
     """Cancel online checkouts left unpaid for too long. Called whenever orders are listed,
     so no scheduled job is needed. Asks Razorpay first, in case the payment did go through."""
-    cutoff = datetime.now(UTC) - timedelta(minutes=settings.payment_window_minutes)
+    now = datetime.now(UTC)
+    cutoff = now - timedelta(minutes=settings.payment_window_minutes)
+    approved_cutoff = now - timedelta(hours=settings.approved_payment_hours)
     refs = set(db.scalars(
         select(Order.checkout_ref).where(
-            Order.status == OrderStatus.AWAITING_PAYMENT, Order.created_at < cutoff
+            Order.status == OrderStatus.AWAITING_PAYMENT,
+            or_(
+                Order.approved_at.is_(None) & (Order.created_at < cutoff),
+                Order.approved_at < approved_cutoff,  # approved enquiries: hours, not minutes
+            ),
         )
     ))
     for ref in refs:

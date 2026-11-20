@@ -219,6 +219,11 @@ def settle(seller_id: int, body: SettleIn, admin: User = Depends(require_admin),
     return next(h for h in _history(db, seller_id, limit=5) if h.id == p.id)
 
 
+@router.get("/admin/payouts-commission", response_model=CommissionIn, dependencies=[Depends(require_admin)])
+def get_commission(db: Session = Depends(get_db)):
+    return CommissionIn(commission_percent=get_settings_row(db).commission_percent)
+
+
 @router.put("/admin/payouts-commission", response_model=CommissionIn, dependencies=[Depends(require_admin)])
 def set_commission(body: CommissionIn, db: Session = Depends(get_db)):
     row = get_settings_row(db)

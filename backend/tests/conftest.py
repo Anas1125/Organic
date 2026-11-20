@@ -122,3 +122,19 @@ def make_product(client, seller, admin, category, approve=True, **overrides):
         r = client.patch(f"/api/v1/admin/products/{pid}/status", json={"status": "approved"}, headers=admin)
         assert r.status_code == 200
     return pid
+
+
+def approve_orders(client, admin, orders, commission="0"):
+    """Every checkout starts as an enquiry; approve it as the admin would."""
+    out = []
+    for o in orders:
+        r = client.post(f"/api/v1/admin/orders/{o['id']}/approve", json={"commission_percent": commission}, headers=admin)
+        assert r.status_code == 200, r.text
+        out.append(r.json())
+    return out
+
+
+def place_order(client, buyer, admin, body, commission="0"):
+    r = client.post("/api/v1/orders/checkout", json=body, headers=buyer)
+    assert r.status_code == 201, r.text
+    return approve_orders(client, admin, r.json(), commission)

@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session, selectinload
 from app import schemas as s
 from app.core.config import settings
 from app.models import CartItem, Order, OrderItem, Product, SiteSettings, User
-from app.models.enums import OrderStatus, PaymentMethod, PaymentStatus
+from app.models.enums import OrderStatus, PaymentMethod, PaymentStatus, Role
 from app.services import notify, payments
 from app.services import razorpay as rzp
 from app.services.pricing import check_quantity, unit_price_for
@@ -17,6 +17,7 @@ from app.services.queries import visible_products
 
 # Which statuses a seller may move an order to from each status.
 SELLER_FLOW: dict[str, set[str]] = {
+    OrderStatus.ENQUIRY: set(),  # only the admin approves or declines an enquiry
     OrderStatus.AWAITING_PAYMENT: set(),  # only the buyer (or the payment window) can end this
     OrderStatus.PENDING: {OrderStatus.CONFIRMED, OrderStatus.CANCELLED},
     OrderStatus.CONFIRMED: {OrderStatus.PACKED, OrderStatus.CANCELLED},
@@ -90,7 +91,7 @@ def checkout(db: Session, buyer: User, body: s.CheckoutIn) -> list[Order]:
             checkout_ref=ref,
             buyer_id=buyer.id,
             seller_id=seller_id,
-            status=OrderStatus.AWAITING_PAYMENT if online else first_status(),
+            status=OrderStatus.ENQUIRY,  # the admin agrees terms with the seller first
             payment_method=PaymentMethod.ONLINE if online else PaymentMethod.COD,
             payment_status=PaymentStatus.PENDING,
             subtotal=Decimal(0),
@@ -122,11 +123,43 @@ def checkout(db: Session, buyer: User, body: s.CheckoutIn) -> list[Order]:
     for ci in cart:
         db.delete(ci)
     db.commit()
-    if not online:  # online orders are announced once the payment succeeds
-        for o in orders:
-            db.refresh(o)
-        notify.order_placed(orders)
+    for o in orders:
+        db.refresh(o)
+    notify.enquiry_received(orders, _admin_emails(db))
     return orders
+
+
+def _admin_emails(db: Session) -> list[str]:
+    return list(db.scalars(select(User.email).where(User.role == Role.ADMIN, User.is_active.is_(True))))
+
+
+def approve(db: Session, order: Order, commission: Decimal) -> Order:
+    """The admin agreed terms with the seller. Cash on delivery goes to the seller now;
+    an online order waits for the buyer to pay (then goes to the seller)."""
+    if order.status != OrderStatus.ENQUIRY:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "This enquiry has already been handled")
+    order.commission_rate = commission
+    order.approved_at = datetime.now(UTC)
+    if order.payment_method == PaymentMethod.ONLINE:
+        order.status = OrderStatus.AWAITING_PAYMENT
+        # Its own payment reference, so each approved order is paid on its own
+        # (the other sellers' orders from the same checkout may be approved later).
+        order.checkout_ref = f"{order.checkout_ref[:20]}-{order.id}"
+    else:
+        order.status = first_status()
+    db.commit()
+    db.refresh(order)
+    notify.enquiry_approved(order)
+    return order
+
+
+def decline(db: Session, order: Order, reason: str) -> Order:
+    if order.status != OrderStatus.ENQUIRY:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "This enquiry has already been handled")
+    order.decline_reason = reason
+    order = change_status(db, order, OrderStatus.CANCELLED, as_admin=True, notify_buyer=False)
+    notify.enquiry_declined(order)
+    return order
 
 
 def _restock(db: Session, order: Order) -> None:
@@ -155,6 +188,8 @@ def change_status(
             status.HTTP_400_BAD_REQUEST,
             f"Cannot move an order from '{order.status}' to '{new_status}'",
         )
+    if order.status == OrderStatus.ENQUIRY and new_status != OrderStatus.CANCELLED:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Approve the enquiry first")
     if order.status == OrderStatus.AWAITING_PAYMENT and new_status != OrderStatus.CANCELLED:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "This order hasn't been paid yet")
     refund = False

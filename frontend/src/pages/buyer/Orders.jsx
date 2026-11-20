@@ -47,15 +47,19 @@ function useUnpaid(onDone) {
   return { pay, cancel, busy }
 }
 
-function UnpaidNotice({ orderRef, total, failed, onDone }) {
+function UnpaidNotice({ orderRef, total, failed, approved, orderNumber, onDone }) {
   const { pay, cancel, busy } = useUnpaid(onDone)
   return (
     <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
       <div className="flex items-start gap-3">
         {failed ? <AlertCircle className="mt-0.5 size-5 shrink-0 text-red-600" /> : <Clock className="mt-0.5 size-5 shrink-0" />}
         <div className="min-w-0 flex-1">
-          <strong>{failed ? `Payment failed: ${failed}` : 'Payment not completed'}</strong>
-          <p className="mt-0.5">Your items are held for a short time{total ? ` (${money(total)})` : ''}. No money was taken if the payment didn't finish. Pay now, or cancel and the items go back in your cart.</p>
+          <strong>{failed ? `Payment failed: ${failed}` : approved ? `Approved${orderNumber ? ` — ${orderNumber}` : ''}: please pay ${money(total)}` : 'Payment not completed'}</strong>
+          <p className="mt-0.5">
+            {approved
+              ? 'The seller can supply your order. Pay within 48 hours to confirm it; after that it is cancelled and the stock released.'
+              : `Your items are held for a short time${total ? ` (${money(total)})` : ''}. No money was taken if the payment didn't finish. Pay now, or cancel and the items go back in your cart.`}
+          </p>
           <div className="mt-3 flex flex-wrap gap-2">
             <Button size="sm" loading={busy === 'pay'} disabled={Boolean(busy)} onClick={() => pay(orderRef)}>Pay now</Button>
             <Button size="sm" variant="outline" loading={busy === 'cancel'} disabled={Boolean(busy)} onClick={() => cancel(orderRef)}>Cancel order</Button>
@@ -70,21 +74,24 @@ export function Orders() {
   const { data, loading, error, reload } = useFetch('/orders')
   const { state } = useLocation()
   const navigate = useNavigate()
-  // Any checkout still waiting for payment (from this visit or an earlier one).
-  const unpaidRef = data?.find((o) => o.status === 'awaiting_payment')?.checkout_ref
-  const unpaidTotal = data?.filter((o) => o.checkout_ref === unpaidRef && o.status === 'awaiting_payment').reduce((n, o) => n + Number(o.total), 0)
+  // Orders waiting for payment: approved enquiries (each paid on its own), or an older
+  // checkout whose payment didn't finish.
+  const unpaid = (data || []).filter((o) => o.status === 'awaiting_payment')
   const done = () => { navigate('.', { replace: true, state: null }); reload() }
 
   return (
     <div className="container-page py-6 sm:py-8">
       <h1 className="mb-6 text-2xl font-bold sm:text-3xl">My orders</h1>
-      {unpaidRef && <UnpaidNotice orderRef={unpaidRef} total={unpaidTotal} failed={state?.unpaid === unpaidRef ? state?.failed : null} onDone={done} />}
+      {unpaid.map((o) => (
+        <UnpaidNotice key={o.id} orderRef={o.checkout_ref} total={Number(o.total)} approved={Boolean(o.approved_at)} orderNumber={o.order_number}
+          failed={state?.unpaid === o.checkout_ref ? state?.failed : null} onDone={done} />
+      ))}
       {state?.placed && (
         <div className="mb-6 flex items-start gap-3 rounded-2xl bg-brand-100 p-4 text-sm text-brand-900">
           <CheckCircle2 className="mt-0.5 size-5 shrink-0" />
           <div>
-            <strong>{state.paid ? 'Payment successful! ' : 'Thank you! '}Your order{state.placed.length > 1 ? 's were' : ' was'} placed.</strong>
-            <div className="mt-0.5 text-brand-800/80">{state.placed.join(', ')} — sellers will confirm shortly.</div>
+            <strong>Thank you! Your enquir{state.placed.length > 1 ? 'ies were' : 'y was'} sent.</strong>
+            <div className="mt-0.5 text-brand-800/80">{state.placed.join(', ')} — our team is confirming with the seller and will email you once it's approved. Nothing has been charged.</div>
           </div>
         </div>
       )}
@@ -167,9 +174,9 @@ export function OrderDetail() {
       <div className="mt-2"><OrderMeta order={o} /></div>
 
       <div className="mt-6">
-        {o.status === 'awaiting_payment' && <UnpaidNotice orderRef={o.checkout_ref} total={Number(o.total)} onDone={reload} />}
+        {o.status === 'awaiting_payment' && <UnpaidNotice orderRef={o.checkout_ref} total={Number(o.total)} approved={Boolean(o.approved_at)} onDone={reload} />}
       </div>
-      <div className="card p-5 sm:p-6"><OrderTimeline status={o.status} /></div>
+      <div className="card p-5 sm:p-6"><OrderTimeline status={o.status} reason={o.decline_reason} /></div>
       {['shipped', 'delivered'].includes(o.status) && (o.courier || o.tracking_number || o.status === 'shipped') && (
         <div className="mt-4 flex flex-wrap items-center gap-4 rounded-2xl border border-violet-100 bg-violet-50 p-4 text-sm text-violet-950">
           <Truck className="size-5 shrink-0 text-violet-700" />
@@ -199,7 +206,7 @@ export function OrderDetail() {
         <div className="card p-5 sm:p-6">
           <h2 className="mb-2 text-sm font-semibold">Delivering to</h2>
           <ShippingBlock order={o} />
-          {['pending', 'confirmed'].includes(o.status) && (
+          {['enquiry', 'pending', 'confirmed'].includes(o.status) && (
             <Button variant="danger-soft" className="mt-5 w-full" loading={busy} onClick={cancel}>Cancel order</Button>
           )}
         </div>

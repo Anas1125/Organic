@@ -27,6 +27,7 @@ export default function AdminHome() {
       </div>
       <div className="mt-3 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <StatCard label="Live products" value={`${s.live_products} / ${s.products}`} icon={Package} />
+        <StatCard label="Enquiries waiting for you" value={s.enquiries ?? 0} icon={ShoppingBag} tone="amber" to="/admin/orders?status=enquiry" />
         <StatCard label="Open orders" value={s.open_orders} icon={ShoppingBag} tone="sky" to="/admin/orders" />
         <StatCard label="Contact messages" value={s.messages} icon={Users} tone="violet" to="/admin/messages" />
       </div>

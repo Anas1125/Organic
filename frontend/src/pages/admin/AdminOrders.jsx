@@ -1,12 +1,93 @@
-import { Mail, Search, ShoppingBag } from 'lucide-react'
-import { useState } from 'react'
+import { Mail, Phone, Search, ShoppingBag } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import api, { errorMessage } from '../../api/client'
 import { OrderItemsTable, OrderMeta, OrderTimeline, ShippingBlock } from '../../components/orders'
-import { Button, EmptyState, ErrorBox, Field, Modal, PageHeader, Select, Spinner, Tabs } from '../../components/ui'
+import { Button, EmptyState, ErrorBox, Field, Input, Modal, PageHeader, Select, Spinner, Tabs, Textarea } from '../../components/ui'
 import { useToast } from '../../context/ToastContext'
 import useFetch from '../../hooks/useFetch'
-import { ORDER_STEPS, dateTime } from '../../lib/format'
+import { ORDER_STEPS, dateTime, money } from '../../lib/format'
 import { OrdersTable } from '../seller/SellerOrders'
+
+function Contact({ title, name, sub, email, phone }) {
+  return (
+    <div className="rounded-xl bg-canvas p-3 text-sm">
+      <div className="text-xs font-semibold uppercase tracking-wide text-muted">{title}</div>
+      <div className="mt-1 font-semibold">{name}</div>
+      {sub && <div className="text-xs text-muted">{sub}</div>}
+      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+        {phone && <a href={`tel:${phone}`} className="inline-flex items-center gap-1 text-brand-700 hover:underline"><Phone className="size-3.5" />{phone}</a>}
+        {email && <a href={`mailto:${email}`} className="inline-flex items-center gap-1 break-all text-brand-700 hover:underline"><Mail className="size-3.5" />{email}</a>}
+      </div>
+    </div>
+  )
+}
+
+/** A new order: call the seller, agree stock, price and commission, then approve or decline. */
+function EnquiryPanel({ order, onChange }) {
+  const toast = useToast()
+  const [pct, setPct] = useState('')
+  const [declining, setDeclining] = useState(false)
+  const [reason, setReason] = useState('')
+  const [busy, setBusy] = useState('')
+  useEffect(() => {
+    api.get('/admin/payouts-commission').then(({ data }) => setPct((p) => p || String(Number(data.commission_percent)))).catch(() => setPct((p) => p || '0'))
+  }, [])
+  const commission = (Number(order.subtotal) * Number(pct || 0)) / 100
+
+  const act = async (what, call, done) => {
+    setBusy(what)
+    try {
+      onChange((await call()).data)
+      toast.success(done)
+    } catch (e) {
+      toast.error(errorMessage(e))
+    } finally {
+      setBusy('')
+    }
+  }
+  const approve = () => act('approve', () => api.post(`/admin/orders/${order.id}/approve`, { commission_percent: pct || '0' }),
+    order.payment_method === 'online' ? 'Approved — the buyer has been asked to pay' : 'Approved — sent to the seller')
+  const decline = () => act('decline', () => api.post(`/admin/orders/${order.id}/decline`, { reason }), 'Enquiry declined — the buyer has been told')
+
+  return (
+    <div className="space-y-4 rounded-2xl border border-sky-200 bg-sky-50/60 p-4">
+      <div>
+        <h3 className="font-semibold">New enquiry — waiting for you</h3>
+        <p className="mt-0.5 text-sm text-ink/70">
+          Contact the seller to confirm stock and price, and agree your commission. The seller doesn't see this order until you approve it.
+          {order.payment_method === 'online' ? ' The buyer pays online after you approve.' : ' Cash on delivery: the seller collects the money.'}
+        </p>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Contact title="Seller" name={order.seller.business_name} sub={order.seller_owner} email={order.seller_email} phone={order.seller_phone} />
+        <Contact title="Buyer" name={order.buyer_name} sub={[order.buyer_type, `${order.shipping_city}, ${order.shipping_state}`].filter(Boolean).join(' · ')} email={order.buyer_email} phone={order.buyer_phone || order.shipping_phone} />
+      </div>
+      {!declining ? (
+        <div className="flex flex-wrap items-end gap-3">
+          <Field label="Agreed commission %" className="w-40">
+            <Input type="number" min="0" max="50" step="0.01" value={pct} onChange={(e) => setPct(e.target.value)} />
+          </Field>
+          <div className="pb-2.5 text-sm text-muted">You earn <strong className="text-ink">{money(commission)}</strong> of {money(order.subtotal)}</div>
+          <div className="ml-auto flex gap-2">
+            <Button variant="outline" onClick={() => setDeclining(true)} disabled={Boolean(busy)}>Decline</Button>
+            <Button onClick={approve} loading={busy === 'approve'} disabled={pct === '' || Number(pct) < 0 || Number(pct) > 50}>Approve</Button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <Field label="Reason (sent to the buyer)">
+            <Textarea rows={2} maxLength={300} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Out of stock until next harvest" />
+          </Field>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setDeclining(false)} disabled={Boolean(busy)}>Back</Button>
+            <Button variant="danger-soft" onClick={decline} loading={busy === 'decline'} disabled={reason.trim().length < 3}>Decline enquiry</Button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 function AdminOrderPanel({ order, onChange }) {
   const toast = useToast()
@@ -41,10 +122,22 @@ function AdminOrderPanel({ order, onChange }) {
     }
   }
 
+  if (order.status === 'enquiry') {
+    return (
+      <div className="space-y-5">
+        <OrderMeta order={order} />
+        <EnquiryPanel order={order} onChange={onChange} />
+        <div><h3 className="mb-1 text-sm font-semibold">Items</h3><OrderItemsTable order={order} /></div>
+        <div><h3 className="mb-1 text-sm font-semibold">Ship to</h3><ShippingBlock order={order} /></div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-5">
       <OrderMeta order={order} />
-      <OrderTimeline status={order.status} />
+      <OrderTimeline status={order.status} reason={order.decline_reason} />
+      {order.approved_at && <p className="-mt-2 text-xs text-muted">Commission agreed: {Number(order.commission_rate)}%</p>}
       <div className="grid gap-5 sm:grid-cols-2">
         <div><h3 className="mb-1 text-sm font-semibold">Items · {order.seller.business_name}</h3><OrderItemsTable order={order} /></div>
         <div><h3 className="mb-1 text-sm font-semibold">Ship to</h3><ShippingBlock order={order} /><div className="mt-2 text-xs text-muted">Buyer: {order.buyer_name} · {order.buyer_email}</div></div>
@@ -79,19 +172,21 @@ function AdminOrderPanel({ order, onChange }) {
 }
 
 export function AdminOrders() {
-  const [tab, setTab] = useState('')
+  // The enquiry email links here with ?status=enquiry&open=<id>.
+  const [params] = useSearchParams()
+  const [tab, setTab] = useState(params.get('status') || '')
   const [q, setQ] = useState('')
   const { data, setData, loading, error, reload } = useFetch('/admin/orders')
-  const [openId, setOpenId] = useState(null)
+  const [openId, setOpenId] = useState(Number(params.get('open')) || null)
   const open = data?.find((o) => o.id === openId)
   const count = (s) => data?.filter((o) => o.status === s).length
   const rows = (data || []).filter((o) => (!tab || o.status === tab) && `${o.order_number} ${o.buyer_name} ${o.seller.business_name}`.toLowerCase().includes(q.toLowerCase()))
 
   return (
     <>
-      <PageHeader title="All orders" subtitle="Admins can override any order’s status or payment." />
+      <PageHeader title="All orders" subtitle="New orders arrive as enquiries: agree terms with the seller, then approve or decline. Admins can also override any order’s status or payment." />
       <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <Tabs value={tab} onChange={setTab} options={[{ value: '', label: 'All', count: data?.length }, ...['awaiting_payment', ...ORDER_STEPS, 'cancelled'].map((s) => ({ value: s, label: s === 'awaiting_payment' ? 'Unpaid' : s[0].toUpperCase() + s.slice(1), count: count(s) }))]} />
+        <Tabs value={tab} onChange={setTab} options={[{ value: '', label: 'All', count: data?.length }, ...['enquiry', 'awaiting_payment', ...ORDER_STEPS, 'cancelled'].map((s) => ({ value: s, label: { enquiry: 'Enquiries', awaiting_payment: 'Unpaid' }[s] || s[0].toUpperCase() + s.slice(1), count: count(s) }))]} />
         <div className="relative lg:w-64">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
           <input className="input pl-9" placeholder="Order no., buyer or seller" value={q} onChange={(e) => setQ(e.target.value)} />

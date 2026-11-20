@@ -507,6 +507,23 @@ class OrderOut(ORM):
     seller: SellerPublic
     buyer_name: str | None = None
     buyer_email: str | None = None
+    commission_rate: Decimal | None = None
+    approved_at: datetime | None = None
+    decline_reason: str | None = None
+    # Admin only: who to call about an enquiry.
+    buyer_phone: str | None = None
+    buyer_type: str | None = None
+    seller_owner: str | None = None
+    seller_email: str | None = None
+    seller_phone: str | None = None
+
+
+class ApproveIn(BaseModel):
+    commission_percent: Decimal = Field(ge=0, le=50, decimal_places=2)
+
+
+class DeclineIn(BaseModel):
+    reason: str = Field(min_length=3, max_length=300)
 
 
 class OrderStatusIn(BaseModel):

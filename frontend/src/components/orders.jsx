@@ -3,7 +3,14 @@ import { useState } from 'react'
 import { ORDER_STEPS, dateTime, money } from '../lib/format'
 import { StatusBadge } from './ui'
 
-export function OrderTimeline({ status }) {
+export function OrderTimeline({ status, reason }) {
+  if (status === 'enquiry') {
+    return (
+      <div className="flex items-start gap-2 rounded-xl bg-sky-50 px-4 py-3 text-sm font-medium text-sky-900">
+        <Clock className="mt-0.5 size-4 shrink-0" /> Enquiry sent — our team is confirming availability with the seller. We'll email you once it's approved; nothing has been charged.
+      </div>
+    )
+  }
   if (status === 'awaiting_payment') {
     return (
       <div className="flex items-center gap-2 rounded-xl bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">
@@ -13,8 +20,8 @@ export function OrderTimeline({ status }) {
   }
   if (status === 'cancelled') {
     return (
-      <div className="flex items-center gap-2 rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-        <X className="size-4" /> This order was cancelled
+      <div className="flex items-start gap-2 rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+        <X className="mt-0.5 size-4 shrink-0" /> <span>This order was cancelled{reason ? <>: <span className="font-normal">{reason}</span></> : ''}</span>
       </div>
     )
   }

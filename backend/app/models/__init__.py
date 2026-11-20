@@ -278,6 +278,9 @@ class Order(TimestampMixin, Base):
     notes: Mapped[str | None] = mapped_column(String(500))
     # Platform commission (% of the subtotal), fixed when the order is placed.
     commission_rate: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal(0), server_default="0")
+    # Enquiry review: when the admin approved it, or why it was declined.
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    decline_reason: Mapped[str | None] = mapped_column(String(300))
     # Settlement with the seller: which payout included it and for how much (+ owed to the
     # seller for online payments, - commission owed by the seller for cash on delivery).
     payout_id: Mapped[int | None] = mapped_column(ForeignKey("payouts.id"), index=True)

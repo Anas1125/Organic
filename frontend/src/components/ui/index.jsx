@@ -111,6 +111,7 @@ const STATUS_STYLES = {
   cancelled: 'bg-red-50 text-red-700',
   refunded: 'bg-gray-100 text-gray-700',
   awaiting_payment: 'bg-amber-100 text-amber-900',
+  enquiry: 'bg-sky-100 text-sky-900',
   failed: 'bg-red-50 text-red-700',
   refund_pending: 'bg-sky-50 text-sky-800',
   refund_failed: 'bg-red-50 text-red-700',

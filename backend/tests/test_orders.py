@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from tests.conftest import make_product, make_seller
+from tests.conftest import approve_orders, make_product, make_seller, place_order
 
 ADDRESS = {"shipping_name": "Priya", "shipping_phone": "9876543210", "shipping_address": "12 Main Street",
            "shipping_city": "Chennai", "shipping_state": "Tamil Nadu", "shipping_pincode": "600001"}
@@ -39,6 +39,10 @@ def test_checkout_splits_by_seller_and_reduces_stock(client, seller, admin, buye
 
     assert client.get(f"/api/v1/products/{p1}").json()["stock"] == 40
     assert client.get("/api/v1/cart", headers=buyer).json()["item_count"] == 0
+    # Enquiries first: sellers see nothing until the admin approves
+    assert {o["status"] for o in orders} == {"enquiry"}
+    assert client.get("/api/v1/seller/orders", headers=seller).json() == []
+    approve_orders(client, admin, orders)
     # each seller only sees their own order
     assert len(client.get("/api/v1/seller/orders", headers=seller).json()) == 1
     assert len(client.get("/api/v1/seller/orders", headers=other).json()) == 1
@@ -55,7 +59,7 @@ def test_checkout_fails_when_stock_ran_out(client, seller, admin, buyer, categor
 def test_status_flow_and_cancel_restocks(client, seller, admin, buyer, category):
     pid = make_product(client, seller, admin, category, stock=10)
     client.post("/api/v1/cart/items", json={"product_id": pid, "quantity": 4}, headers=buyer)
-    oid = client.post("/api/v1/orders/checkout", json=ADDRESS, headers=buyer).json()[0]["id"]
+    oid = place_order(client, buyer, admin, ADDRESS)[0]["id"]
 
     # sellers can't skip steps
     r = client.patch(f"/api/v1/seller/orders/{oid}/status", json={"status": "delivered"}, headers=seller)
@@ -70,7 +74,7 @@ def test_status_flow_and_cancel_restocks(client, seller, admin, buyer, category)
 def test_delivered_cod_marked_paid(client, seller, admin, buyer, category):
     pid = make_product(client, seller, admin, category)
     client.post("/api/v1/cart/items", json={"product_id": pid, "quantity": 1}, headers=buyer)
-    oid = client.post("/api/v1/orders/checkout", json=ADDRESS, headers=buyer).json()[0]["id"]
+    oid = place_order(client, buyer, admin, ADDRESS)[0]["id"]
     for st in ["confirmed", "packed", "shipped", "delivered"]:
         r = client.patch(f"/api/v1/seller/orders/{oid}/status", json={"status": st}, headers=seller)
         assert r.status_code == 200, st
@@ -100,3 +104,40 @@ def test_order_items_show_product_photo(client, seller, admin, buyer, category):
     assert item["image"].startswith(f"/media/products/{pid}/")
     got = client.get(item["image"])  # per-product folder must be served too
     assert got.status_code == 200 and got.headers["content-type"] == "image/webp"
+
+
+def test_enquiry_approve_and_decline(client, seller, admin, buyer, category, monkeypatch):
+    sent = []
+    monkeypatch.setattr("app.services.notify.send_email", lambda to, subject, *a, **k: sent.append((to, subject)))
+    p1 = make_product(client, seller, admin, category, stock=10)
+    client.post("/api/v1/cart/items", json={"product_id": p1, "quantity": 2}, headers=buyer)
+    o = client.post("/api/v1/orders/checkout", json=ADDRESS, headers=buyer).json()[0]
+    # The admin is told who wants what, from whom
+    admin_mail = [s for to, s in sent if s.startswith("New enquiry")]
+    assert admin_mail and "seller@test.io Farm" in admin_mail[0]
+    # Sellers can't act on it; the admin sees contact details
+    assert client.patch(f"/api/v1/seller/orders/{o['id']}/status", json={"status": "confirmed"}, headers=seller).status_code == 404
+    listed = client.get("/api/v1/admin/orders?status=enquiry", headers=admin).json()[0]
+    assert listed["seller_email"] == "seller@test.io" and listed["buyer_email"] == "buyer@test.io"
+    # Only admins approve, with the agreed commission
+    assert client.post(f"/api/v1/admin/orders/{o['id']}/approve", json={"commission_percent": "8"}, headers=seller).status_code == 403
+    r = client.post(f"/api/v1/admin/orders/{o['id']}/approve", json={"commission_percent": "8.5"}, headers=admin)
+    assert r.status_code == 200 and r.json()["commission_rate"] == "8.50" and r.json()["approved_at"]
+    assert client.post(f"/api/v1/admin/orders/{o['id']}/approve", json={"commission_percent": "8"}, headers=admin).status_code == 400
+
+    # A second enquiry is declined: cancelled, stock back, buyer told why
+    client.post("/api/v1/cart/items", json={"product_id": p1, "quantity": 3}, headers=buyer)
+    o2 = client.post("/api/v1/orders/checkout", json=ADDRESS, headers=buyer).json()[0]
+    assert client.get(f"/api/v1/products/{p1}").json()["stock"] == 5
+    r = client.post(f"/api/v1/admin/orders/{o2['id']}/decline", json={"reason": "Out of season"}, headers=admin)
+    assert r.json()["status"] == "cancelled" and r.json()["decline_reason"] == "Out of season"
+    assert client.get(f"/api/v1/products/{p1}").json()["stock"] == 8
+    assert f"Enquiry declined — {o2['order_number']}" in {s for _, s in sent}
+
+
+def test_buyer_can_cancel_enquiry(client, seller, admin, buyer, category):
+    pid = make_product(client, seller, admin, category, stock=10)
+    client.post("/api/v1/cart/items", json={"product_id": pid, "quantity": 4}, headers=buyer)
+    o = client.post("/api/v1/orders/checkout", json=ADDRESS, headers=buyer).json()[0]
+    assert client.post(f"/api/v1/orders/{o['id']}/cancel", headers=buyer).json()["status"] == "cancelled"
+    assert client.get(f"/api/v1/products/{pid}").json()["stock"] == 10

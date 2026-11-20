@@ -189,7 +189,7 @@ def cancel_order(
     if o.status == OrderStatus.AWAITING_PAYMENT:
         payments.cancel_unpaid(db, o.checkout_ref, buyer=buyer, why="Cancelled before payment")
         return order_out(_own_order(db, buyer, order_id))
-    if o.status not in (OrderStatus.PENDING, OrderStatus.CONFIRMED):
+    if o.status not in (OrderStatus.ENQUIRY, OrderStatus.PENDING, OrderStatus.CONFIRMED):
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST, "This order is already being prepared and can't be cancelled"
         )

@@ -6,7 +6,7 @@ from datetime import UTC, datetime, timedelta
 from app.core.config import settings
 from app.db import SessionLocal
 from app.models import Order
-from tests.conftest import make_product
+from tests.conftest import make_product, place_order
 from tests.test_orders import ADDRESS
 
 
@@ -15,7 +15,7 @@ def _orders(client, buyer, seller, admin, category, n=3):
     for i in range(n):
         pid = make_product(client, seller, admin, category, name=f"Item {i}", stock=50)
         client.post("/api/v1/cart/items", json={"product_id": pid, "quantity": 1}, headers=buyer)
-        ids.append(client.post("/api/v1/orders/checkout", json=ADDRESS, headers=buyer).json()[0]["id"])
+        ids.append(place_order(client, buyer, admin, ADDRESS)[0]["id"])
     return ids
 
 

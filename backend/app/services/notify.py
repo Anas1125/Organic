@@ -29,7 +29,8 @@ def _summary(o: Order) -> list[str]:
         f"<b>Order {esc(o.order_number)}</b> from {esc(o.seller.business_name)}",
         _items(o),
         f"Total: <b>{_money(o.total)}</b> · "
-        + ("Cash on delivery" if o.payment_method == PaymentMethod.COD else "Paid online"),
+        + ("Cash on delivery" if o.payment_method == PaymentMethod.COD
+           else "Paid online" if o.payment_status == "paid" else "Online payment (UPI / card)"),
     ]
 
 
@@ -120,3 +121,51 @@ def refund_done(o: Order) -> None:
     _buyer(o, f"Refund completed — {o.order_number}", "Refund completed",
            [f"Your refund of {_money(o.total)} for order {esc(o.order_number)} has been processed."],
            with_summary=False)
+
+
+# ---------- Enquiries: every order is checked by the admin with the seller first ----------
+
+def enquiry_received(orders: list[Order], admin_emails: list[str]) -> None:
+    for o in orders:
+        _buyer(o, f"Enquiry received — {o.order_number}", "We've received your enquiry",
+               ["Thanks! Our team is confirming availability and terms with the seller. "
+                "We'll email you as soon as it's approved"
+                + (" — you'll pay online then. No money has been taken yet." if o.payment_method == PaymentMethod.ONLINE else ".")])
+        b, sp = o.buyer, o.seller
+        owner = sp.user if hasattr(sp, "user") else None
+        details = [
+            f"<b>{esc(b.full_name)}</b> wants to buy from <b>{esc(sp.business_name)}</b>.",
+            *_summary(o),
+            f"<b>Buyer</b>: {esc(b.full_name)} ({esc(b.buyer_type)}) · {esc(b.email)}"
+            + (f" · {esc(b.phone)}" if b.phone else "")
+            + f" · ships to {esc(o.shipping_city)}, {esc(o.shipping_state)}",
+            f"<b>Seller</b>: {esc(sp.business_name)}"
+            + (f" · {esc(owner.full_name)} · {esc(owner.email)}" if owner else "")
+            + (f" · {esc(sp.phone or (owner.phone if owner else None) or '')}" if (sp.phone or (owner and owner.phone)) else ""),
+            "Contact the seller to confirm stock, price and your commission, then approve or decline it.",
+        ]
+        for to in admin_emails:
+            send_email(to, f"New enquiry {o.order_number}: {b.full_name} → {sp.business_name}",
+                       "New enquiry to review", details,
+                       ("Review the enquiry", _site(f"/admin/orders?status=enquiry&open={o.id}")))
+
+
+def enquiry_approved(o: Order) -> None:
+    if o.payment_method == PaymentMethod.ONLINE:
+        _buyer(o, f"Approved — please pay for {o.order_number}", "Your enquiry is approved",
+               [f"Good news — the seller can supply your order. Please pay {_money(o.total)} online "
+                f"within {settings.approved_payment_hours} hours to confirm it; after that it's cancelled "
+                "and the stock is released.",
+                "Open your order and tap <b>Pay now</b>."])
+    else:
+        _buyer(o, f"Order confirmed — {o.order_number}", "Your enquiry is approved",
+               ["Good news — the seller can supply your order and is getting it ready. "
+                f"Please keep {_money(o.total)} ready to pay on delivery."])
+        _seller(o)
+
+
+def enquiry_declined(o: Order) -> None:
+    lead = ["Sorry — we couldn't arrange this order with the seller, so it has been cancelled. No money was taken."]
+    if o.decline_reason:
+        lead.append(f"Reason: {esc(o.decline_reason)}")
+    _buyer(o, f"Enquiry declined — {o.order_number}", "We couldn't confirm your enquiry", lead)
