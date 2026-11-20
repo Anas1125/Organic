@@ -275,7 +275,10 @@ export default function SellerOrders() {
       )}
       <BulkShipDialog open={shipOpen} orders={picked} onClose={() => setShipOpen(false)} onDone={(updated) => { replace(updated); setSelected(new Set()); setShipOpen(false) }} />
       <Modal open={Boolean(open)} onClose={() => setOpenId(null)} title="Order details" wide>
-        {open && <OrderPanel order={open} endpoint="/seller/orders" onChange={(o) => setData(data.map((x) => (x.id === o.id ? o : x)))} />}
+        {open && <OrderPanel order={open} endpoint="/seller/orders" onChange={(o) => {
+          // A declined offer goes back to the marketplace team, so it leaves this list.
+          if (o.status === 'enquiry') { setData(data.filter((x) => x.id !== o.id)); setOpenId(null) } else setData(data.map((x) => (x.id === o.id ? o : x)))
+        }} />}
       </Modal>
     </>
   )

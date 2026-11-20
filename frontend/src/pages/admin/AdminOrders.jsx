@@ -61,7 +61,9 @@ function EnquiryPanel({ order, onChange }) {
           {waiting
             ? `The seller has been emailed the offer and sees it in their Seller hub.${order.answer_by ? ` If they don't answer by ${dateTime(order.answer_by)}, it's cancelled automatically and the buyer is told.` : ''} You can send a new rate, or decline the order for the buyer.`
             : 'Contact the seller to confirm stock and price, and agree your commission. When you approve, the seller is asked to accept that commission; only then is the order confirmed.'}
-          {order.payment_method === 'online' ? ' The buyer pays online once the seller accepts.' : ' Cash on delivery: the seller collects the money.'}
+          {order.payment_method === 'online'
+            ? ' The buyer pays online once the seller accepts.'
+            : order.pay_to_marketplace ? ' Pay on delivery: the buyer pays you by UPI when it arrives.' : ' Cash on delivery: the seller collects the money.'}
         </p>
       </div>
       {order.seller_response && !waiting && (

@@ -97,13 +97,18 @@ def settle(db: Session, seller_id: int, expected: Decimal, reference: str | None
     return payout
 
 
+def _rupees(v: Decimal) -> str:
+    return f"₹{v:,.2f}".replace(".00", "")
+
+
 def _tell_seller(seller: SellerProfile, payout: Payout, count: int) -> None:
+    orders = f"{count} order" + ("s" if count != 1 else "")
     if payout.amount >= 0:
-        heading = f"We've sent you ₹{payout.amount}"
-        first = f"A payout of <strong>₹{payout.amount}</strong> for {count} order(s) has been sent to your account."
+        heading = f"We've sent you {_rupees(payout.amount)}"
+        first = f"A payout of <strong>{_rupees(payout.amount)}</strong> for {orders} has been sent to your account."
     else:
-        heading = f"₹{-payout.amount} commission received"
-        first = f"We've recorded your payment of <strong>₹{-payout.amount}</strong> commission for {count} cash-on-delivery order(s)."
+        heading = f"{_rupees(-payout.amount)} commission received"
+        first = f"We've recorded your payment of <strong>{_rupees(-payout.amount)}</strong> commission for {orders}."
     paras = [first]
     if payout.reference:
         paras.append(f"Transaction reference: <strong>{esc(payout.reference)}</strong>")

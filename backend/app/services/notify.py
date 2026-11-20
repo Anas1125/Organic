@@ -91,7 +91,7 @@ STATUS_TEXT = {
     OrderStatus.CONFIRMED: ("Order confirmed", "The seller has confirmed your order and is getting it ready."),
     OrderStatus.PACKED: ("Order packed", "Your order is packed and will be handed to the courier soon."),
     OrderStatus.SHIPPED: ("Out for delivery", "Your order has been shipped and is on its way to you."),
-    OrderStatus.DELIVERED: ("Order delivered", "Your order has been delivered. Thank you for buying on Terralens!"),
+    OrderStatus.DELIVERED: ("Order delivered", "Your order has been delivered. Thank you for buying with us!"),
     OrderStatus.CANCELLED: ("Order cancelled", "Your order has been cancelled."),
 }
 
@@ -108,7 +108,7 @@ def status_changed(o: Order) -> None:
     if o.status == OrderStatus.CANCELLED and o.payment_method == PaymentMethod.ONLINE and o.payment_status != "pending":
         lead.append("Your refund is being processed — we'll email you when it's done.")
     if o.status == OrderStatus.DELIVERED and o.payment_method == PaymentMethod.COD:
-        if o.pay_to_marketplace and o.payment_status != "paid":
+        if o.pay_to_marketplace and o.payment_status != "paid" and not o.cod_claimed_at:
             lead.append(f"If you haven't yet, please pay {_money(o.total)} to us by UPI — "
                         "the details and QR code are on your order page.")
         elif not o.pay_to_marketplace:

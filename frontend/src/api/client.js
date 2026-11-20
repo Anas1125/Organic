@@ -48,6 +48,13 @@ api.interceptors.response.use(
   },
 )
 
+const FIELD_LABELS = {
+  phone: 'Mobile number', shipping_phone: 'Phone', email: 'Email', full_name: 'Full name', password: 'Password',
+  new_password: 'New password', business_name: 'Business name', shipping_pincode: 'PIN code', pincode: 'PIN code',
+  payout_upi: 'UPI ID', payment_upi: 'UPI ID', bank_ifsc: 'IFSC', bank_account_number: 'Account number',
+  commission_percent: 'Commission', reference: 'Reference',
+}
+
 /** Turn any API error into one readable sentence. */
 export function errorMessage(err, fallback = 'Something went wrong. Please try again.') {
   // No response at all: offline, the server busy, or the host refused an upload that's
@@ -63,9 +70,11 @@ export function errorMessage(err, fallback = 'Something went wrong. Please try a
   if (typeof detail === 'string') return detail
   if (Array.isArray(detail) && detail.length) {
     const d = detail[0]
-    const field = d.loc?.filter((x) => x !== 'body').join(' → ')
+    const key = d.loc?.filter((x) => x !== 'body').at(-1)
     const msg = (d.msg || '').replace(/^Value error, /, '')
-    return field ? `${field.replaceAll('_', ' ')}: ${msg}` : msg
+    if (!key || typeof key !== 'string' || /^Enter |^For a /.test(msg)) return msg  // already a full sentence
+    const label = FIELD_LABELS[key] || key.replaceAll('_', ' ').replace(/^./, (c) => c.toUpperCase())
+    return `${label}: ${msg}`
   }
   if (err?.message === 'Network Error') return 'Cannot reach the server. Is the API running?'
   return fallback

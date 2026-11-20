@@ -17,6 +17,13 @@ function CartLine({ item, onChange }) {
   const [qty, setQty] = useState(item.quantity)
   const [busy, setBusy] = useState(false)
   const p = item.product
+  // Save a changed quantity by itself shortly after the buyer stops typing / tapping,
+  // so the order always uses what's on screen (there's no separate "Update" step).
+  useEffect(() => {
+    if (qty === item.quantity || qty < p.min_order_qty) return undefined
+    const t = setTimeout(() => save(qty), 450)
+    return () => clearTimeout(t)
+  }, [qty]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const save = async (next) => {
     setQty(next)
@@ -63,9 +70,7 @@ function CartLine({ item, onChange }) {
         )}
         <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-2">
           <QuantityStepper value={qty} onChange={setQty} min={p.min_order_qty} max={Math.max(p.stock, p.min_order_qty)} unit={p.unit} />
-          {qty !== item.quantity && qty >= p.min_order_qty && (
-            <Button size="sm" variant="secondary" onClick={() => save(qty)}>Update</Button>
-          )}
+          {(busy || qty !== item.quantity) && qty >= p.min_order_qty && <span className="text-xs text-muted">Saving…</span>}
           <div className="ml-auto font-bold">{money(item.line_total)}</div>
         </div>
       </div>

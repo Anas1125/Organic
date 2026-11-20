@@ -7,6 +7,7 @@ order or a password reset.
 
 import html
 import logging
+import time
 import smtplib
 import ssl
 from email.message import EmailMessage
@@ -19,6 +20,29 @@ from app.core.config import settings
 logger = logging.getLogger("terralens")
 
 BRAND = "#1E4D3B"
+_site_name_cache: tuple[float, str] | None = None
+
+
+def site_name() -> str:
+    """The marketplace name from Site settings (what the admin calls the site), cached
+    for a few minutes so every email doesn't hit the database."""
+    global _site_name_cache
+    now = time.monotonic()
+    if _site_name_cache and now - _site_name_cache[0] < 300:
+        return _site_name_cache[1]
+    name = "Terralens"
+    try:
+        from app.db import SessionLocal
+        from app.models import SiteSettings
+
+        with SessionLocal() as db:
+            row = db.get(SiteSettings, 1)
+            if row and row.site_name:
+                name = row.site_name
+    except Exception:  # noqa: BLE001 - an email must never fail over the brand name
+        logger.warning("Couldn't read the site name for emails", exc_info=True)
+    _site_name_cache = (now, name)
+    return name
 
 
 def send_email(to: str, subject: str, heading: str, paragraphs: list[str], button: tuple[str, str] | None = None) -> bool:
@@ -33,7 +57,7 @@ def send_email(to: str, subject: str, heading: str, paragraphs: list[str], butto
         r = httpx.post(
             "https://api.resend.com/emails",
             headers={"Authorization": f"Bearer {settings.resend_api_key}"},
-            json={"from": settings.mail_from, "to": [to], "subject": subject, "html": body_html, "text": text},
+            json={"from": formataddr((site_name(), parseaddr(settings.mail_from)[1])), "to": [to], "subject": subject, "html": body_html, "text": text},
             timeout=8,
         )
         if r.status_code >= 300:
@@ -63,7 +87,7 @@ def _send_smtp(to: str, subject: str, body_html: str, text: str) -> bool:
     if not addr or addr.endswith("@resend.dev"):
         addr = settings.smtp_user
     msg = EmailMessage()
-    msg["From"] = formataddr((name or "Terralens", addr))
+    msg["From"] = formataddr((site_name(), addr))
     msg["To"] = to
     msg["Subject"] = subject
     msg.set_content(text)
@@ -100,7 +124,7 @@ def render(heading: str, paragraphs: list[str], button: tuple[str, str] | None) 
     return f"""<!doctype html><html><body style="margin:0;background:#f3f6f2;font-family:Arial,Helvetica,sans-serif">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:28px 12px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#fff;border-radius:16px">
-<tr><td style="background:{BRAND};border-radius:16px 16px 0 0;padding:18px 26px;color:#fff;font-size:20px;font-weight:700">Terralens</td></tr>
+<tr><td style="background:{BRAND};border-radius:16px 16px 0 0;padding:18px 26px;color:#fff;font-size:20px;font-weight:700">{html.escape(site_name())}</td></tr>
 <tr><td style="padding:26px">
 <h1 style="margin:0 0 16px;font-size:21px;color:#16241e">{html.escape(heading)}</h1>
 {paras}{btn}
