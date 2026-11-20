@@ -19,7 +19,7 @@ function CommissionCard({ value, onSaved }) {
     try {
       const { data } = await api.put('/admin/payouts-commission', { commission_percent: pct || '0' })
       onSaved(data.commission_percent)
-      toast.success('Commission saved')
+      toast.success('Default commission saved')
     } catch (err) {
       toast.error(errorMessage(err))
     } finally {
@@ -30,10 +30,10 @@ function CommissionCard({ value, onSaved }) {
   return (
     <form onSubmit={save} className="card flex flex-wrap items-end gap-4 p-5 sm:p-6">
       <div className="min-w-60 flex-1">
-        <h2 className="flex items-center gap-2 font-semibold"><Percent className="size-4 text-brand-700" /> Marketplace commission</h2>
-        <p className="mt-0.5 text-sm text-muted">Percentage of each order's value the marketplace keeps. Applies to orders placed after you change it; earlier orders keep their rate.</p>
+        <h2 className="flex items-center gap-2 font-semibold"><Percent className="size-4 text-brand-700" /> Default commission</h2>
+        <p className="mt-0.5 text-sm text-muted">Pre-filled in the commission box when you approve an enquiry — you can change it for each order there. The seller sees the rate on their offer and must accept it. Orders already approved keep their agreed rate.</p>
       </div>
-      <Field label="Commission %" className="w-32">
+      <Field label="Default %" className="w-32">
         <Input type="number" min="0" max="50" step="0.01" value={pct} onChange={(e) => setPct(e.target.value)} required />
       </Field>
       <Button type="submit" loading={busy}>Save</Button>

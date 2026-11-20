@@ -62,7 +62,7 @@ export default function Payouts() {
         <StatCard label={b < 0 ? 'You owe (commission)' : 'To be paid to you'} value={money(Math.abs(b))} icon={Wallet} tone={b < 0 ? 'amber' : 'brand'} />
         <StatCard label="Orders waiting" value={data.lines.length} icon={Clock} tone="sky" />
         <StatCard label="Paid to you so far" value={money(paidOut)} icon={Banknote} tone="violet" />
-        <StatCard label="Commission on new orders" value={`${Number(data.commission_percent)}%`} icon={Percent} tone="amber" />
+        <StatCard label="Usual commission (each offer shows its own)" value={`${Number(data.commission_percent)}%`} icon={Percent} tone="amber" />
       </div>
 
       <div className="card mt-6 p-5 text-sm leading-relaxed text-ink/80 sm:p-6">
