@@ -1,0 +1,14 @@
+User-agent: *
+Disallow: /api/
+Disallow: /admin$
+Disallow: /admin/
+Disallow: /seller$
+Disallow: /seller/
+Disallow: /account
+Disallow: /orders
+Disallow: /cart
+Disallow: /login
+Disallow: /register
+Disallow: /forgot-password
+Disallow: /reset-password
+Sitemap: https://organic-bt6.pages.dev/sitemap.xml
