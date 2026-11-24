@@ -34,10 +34,6 @@ export function SiteProvider({ children }) {
       .finally(() => setLoaded(true))
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
-    if (site.site_name) document.title = `${site.site_name} — GI-Tagged Products, Wholesale`
-  }, [site.site_name])
-
   // Browser-tab icon follows the logo uploaded in Admin → Site settings (default: the leaf).
   useEffect(() => {
     if (!ready) return

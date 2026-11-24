@@ -123,3 +123,10 @@ for `payment.captured`, `payment.failed`, `order.paid`, `refund.processed` and `
   with Razorpay that no payment went through.
 - **Refunds:** cancelling a paid online order refunds it automatically; admins can also refund (or retry a
   failed refund) from Admin → Orders. The webhook marks it refunded and the buyer is emailed.
+
+## Search engine optimisation
+
+- Cloudflare Pages serves `/robots.txt` from `frontend/public` and the live `/sitemap.xml` from `frontend/functions`. The sitemap lists public pages, approved catalogue products and their sellers; it returns 503 rather than publishing an incomplete list on API failure.
+- React updates titles, descriptions, canonical URLs, social metadata and product structured data on navigation. Filtered shop URLs and non-public routes are marked noindex. Robots rules are not an access-control mechanism.
+- Default public origin: https://organic-bt6.pages.dev. If moving domains, update robots.txt and the static social image in index.html, set build variable VITE_SITE_URL and Pages Function runtime variable PUBLIC_SITE_URL to the same canonical origin. PUBLIC_API_URL optionally overrides the sitemap API.
+- After deployment, check /robots.txt and /sitemap.xml, submit the sitemap in Google Search Console, and test product URLs in URL Inspection and Rich Results Test. This is a client-rendered SPA; social crawlers that do not execute JavaScript see only the default HTML metadata. Full server rendering is a separate improvement.

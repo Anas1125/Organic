@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import ScrollManager from './components/ScrollManager'
 import App from './App'
+import Seo from './components/Seo'
 import { AuthProvider } from './context/AuthContext'
 import { CartProvider } from './context/CartContext'
 import { SiteProvider } from './context/SiteContext'
@@ -15,6 +16,7 @@ createRoot(document.getElementById('root')).render(
       <ScrollManager />
       <ToastProvider>
         <SiteProvider>
+          <Seo />
           <AuthProvider>
             <CartProvider>
               <App />
